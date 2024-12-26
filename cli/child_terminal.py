@@ -7,10 +7,9 @@ import zlib
 import subprocess
 import traceback
 import time
-import threading
+import os
 
-
-class TermSesh:
+class ChildTerminal:
     monitor: Optional[ProcessMonitor]
     def __init__(self, port=5555, terminal_app=None, session_name='zapper_session'):
         self.context = zmq.Context()
@@ -21,7 +20,9 @@ class TermSesh:
         self.terminal_process = None
         self.monitor = None
         self.tmux_stack = [""]
-
+        self.last_stdout = ""
+        self.last_stderr = ""
+        self.error_log_file = f"/tmp/{session_name}_stderr.log"
 
     def send_code_segment(self, code_data):
         """
@@ -48,8 +49,9 @@ class TermSesh:
             self.kill_tmux_session()
 
             subprocess.run(['tmux', 'new-session', '-d', '-s', self.session_name])
+            subprocess.run(['tmux', 'pipe-pane', '-t', self.session_name,f'2> {self.error_log_file}'])
 
-                        # Open a new terminal window and attach to the tmux session
+            # Open a new terminal window and attach to the tmux session
             if platform.system() == "Darwin":  # macOS
                 apple_script = f'''
                     tell application "Terminal"
@@ -83,24 +85,63 @@ class TermSesh:
             )
             if result.returncode == 0:  # Session exists
                 subprocess.run(['tmux', 'kill-session', '-t', self.session_name])
-                print(f"Killed tmux session: {self.session_name}")
         except Exception as e:
             print(f"Error killing tmux session: {e}")
 
     def read_tmux_output(self):
         """Read output from the tmux session"""
         try:
-            result = subprocess.run(['tmux', 'capture-pane', '-t', self.session_name, '-p'], capture_output=True, text=True)
-            if result.stdout:
-                cleaned_output = self.clean_tmux_output(result.stdout)
-                self.tmux_stack.append(cleaned_output)
-                if len(self.tmux_stack[-2]) < len(cleaned_output):
-                    print(cleaned_output[len(self.tmux_stack[-2]):])
-                    return cleaned_output[len(self.tmux_stack[-2]):]
-            return ""
+            # Capture the entire pane content with history
+            result = subprocess.run(
+                ['tmux', 'capture-pane', '-S -100', '-t', self.session_name, '-p'],  # Get more history
+                capture_output=True,
+                text=True
+            )
+
+            current_output = self.clean_tmux_output(result.stdout)
+            lines = current_output.split('\n')
+
+            error_lines = []
+            in_error = False
+            buffer_lines = []  # Keep recent lines in buffer
+
+            for line in lines:
+                # Keep a buffer of recent lines
+                buffer_lines.append(line)
+                if len(buffer_lines) > 5:  # Keep last 5 lines
+                    buffer_lines.pop(0)
+
+                if 'Traceback' in line or any(err in line for err in [
+                    'SyntaxError:', 'NameError:', 'TypeError:', 'ValueError:',
+                    'ImportError:', 'AttributeError:', 'RuntimeError:',
+                    'IndentationError:', 'TabError:'
+                ]):
+                    in_error = True
+                    # Add the buffer lines for context
+                    error_lines.extend(buffer_lines)
+                    continue
+
+                if in_error:
+                    error_lines.append(line)
+                    # Look for patterns that indicate end of error
+                    if not line.strip() or line.startswith(('$ ', '> ', 'zap>')):
+                        in_error = False
+
+            error_text = '\n'.join(line for line in error_lines if line.strip())
+
+            if error_text and error_text != self.last_stderr:
+                self.last_stderr = error_text
+                return {
+                    'stdout': "",
+                    'stderr': error_text
+                }
+
+            return None
+
         except Exception as e:
             print(f"Error reading tmux session: {e}")
-            return ""
+            traceback.print_exc()
+            return None
 
     def clean_tmux_output(self, raw_output: str) -> str:
         """Clean and format tmux output by removing ANSI escape sequences and extra whitespace"""
@@ -115,19 +156,15 @@ class TermSesh:
         cleaned = ansi_escape.sub('', raw_output)
         cleaned = unicode_chars.sub('', cleaned)
 
-        # Split into lines and remove empty lines
-        lines = [line.strip() for line in cleaned.split('\n')]
-        lines = [line for line in lines if line]
+        # Preserve indentation but remove other whitespace
+        lines = []
+        for line in cleaned.split('\n'):
+            indent = len(line) - len(line.lstrip())
+            cleaned_line = line.strip()
+            if cleaned_line:
+                lines.append(' ' * indent + cleaned_line)
 
-        # Remove duplicate consecutive lines
-        unique_lines = []
-        prev_line = None
-        for line in lines:
-            if line != prev_line:
-                unique_lines.append(line)
-                prev_line = line
-
-        return '\n'.join(unique_lines)
+        return '\n'.join(lines)
     def is_terminal_active(self) -> bool:
         """Check if terminal session is active and valid"""
         return (self.terminal_process is not None and
