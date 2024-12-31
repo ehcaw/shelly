@@ -16,6 +16,10 @@ import re
 import json
 import subprocess
 import signal
+from pathlib import Path
+from nltk.corpus import wordnet
+import nltk
+
 
 # Example run
 def main(error_info: str, flag: Optional[str] = None, project_root: str = './'):
@@ -334,69 +338,70 @@ def detect_framework_or_language(command, directory='.'):
     },
   }
 
-  def check_command(cmd):
-    for framework, data in indicators.items():
-      if any(c in cmd for c in data['commands']):
-        return framework
-    return None
+def find_files_in_directory(directory, file_paths: List[str]):
+    """
+    Find files in directory given their full or partial paths
 
-  def check_files(dir):
-    for framework, data in indicators.items():
-      if len(data['files']) == 0:
-        return None
-      if all(os.path.exists(os.path.join(dir, file)) for file in data['files']):
-        return framework
-    return None
+    Args:
+        directory (str): Root directory to search in
+        file_paths (list): List of file paths or names to find
 
-  def check_file_extension(cmd):
-    file_match = re.search(r'\b[\w-]+\.[a-zA-Z0-9]+\b', cmd)
-    if file_match:
-      file_extension = os.path.splitext(file_match.group())[1]
-      for framework, data in indicators.items():
-        if file_extension in data['extensions']:
-          return framework
-    return None
+    Returns:
+        dict: Dictionary mapping searched paths to found absolute paths
+    """
+    root = Path(directory)
+    found_files = {}
 
-  # Check command first
-  framework = check_command(command)
-  if framework:
-    print('command found')
-    return framework
+    for file_path in file_paths:
+        # Convert to Path object
+        search_path = Path(file_path)
 
-  # Check for characteristic files
-  framework = check_files(command)
-  if framework:
-    print('file found', framework)
-    return framework
+        # If it's just a filename
+        if len(search_path.parts) == 1:
+            matches = list(root.rglob(file_path))
+            if matches:
+                found_files[file_path] = str(matches[0])
 
-  # Check file extension in the command
-  framework = check_file_extension(command)
-  if framework:
-    print('file extension found')
-    return framework
+        # If it's a partial path
+        else:
+            # Try to match the path pattern
+            pattern = str(search_path).replace('\\', '/')
+            matches = list(root.rglob(pattern))
+            if matches:
+                found_files[file_path] = str(matches[0])
 
-  # Check package.json for more clues
-  full_dir = './' + command
-  package_json_path = os.path.join(full_dir, 'package.json')
-  if os.path.exists(package_json_path):
-    with open(package_json_path, 'r') as f:
-      package_data = json.load(f)
-      dependencies = package_data.get('dependencies', {})
-      dev_dependencies = package_data.get('devDependencies', {})
-      all_dependencies = {**dependencies, **dev_dependencies}
+            # Try to match just the filename with directory pattern
+            else:
+                filename = search_path.name
+                parent_dir = search_path.parent
 
-      if 'next' in all_dependencies:
-        return 'nextjs'
-      elif 'react' in all_dependencies:
-        return 'react'
-      elif 'vue' in all_dependencies:
-        return 'vue'
-      elif '@angular/core' in all_dependencies:
-        return 'angular'
-      elif 'express' in all_dependencies:
-        return 'express'
+                for possible_match in root.rglob(filename):
+                    if str(possible_match.parent).endswith(str(parent_dir)):
+                        found_files[file_path] = str(possible_match)
+                        break
 
-  return 'unknown'
+    return found_files
+
+nltk.download('wordnet')
+def calculate_semantic_similarity(word1, word2):
+    # Get synsets for both words
+    synsets1 = wordnet.synsets(word1)
+    synsets2 = wordnet.synsets(word2)
+
+    if not synsets1 or not synsets2:
+        return 0.0
+
+    # Calculate maximum similarity between any pair of synsets
+    max_sim = 0.0
+    for syn1 in synsets1:
+        for syn2 in synsets2:
+            sim = 0
+            if syn1:
+                sim = syn1.path_similarity(syn2)
+            if sim and sim > max_sim:
+                max_sim = sim
+    return max_sim
+
 
 ################################################## NOT IMPLEMENTED ABOVE #####################################################################
 def extract_filename_with_extension(command):
