@@ -1,14 +1,15 @@
-from setuptools import setup
+from setuptools import find_namespace_packages, setup, find_packages
 
 setup(
-    name='splat',
+    name='zap',
     version='0.1',
      py_modules=['splat'],
         install_requires=[
         'Click',
     ],
+    packages=find_packages(),
     entry_points='''
         [console_scripts]
-        splat=splat:cli
+        zap=zap:cli
     ''',
 )

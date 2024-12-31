@@ -1,2 +1,2 @@
 [console_scripts]
-splat = splat:cli
+zap = zap:cli

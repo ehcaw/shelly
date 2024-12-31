@@ -4,6 +4,12 @@ import cmd
 from process_monitor import ProcessMonitor
 from listener import Listener
 from child_terminal import ChildTerminal
+from agents.zapper import Zapper
+import subprocess
+import shlex
+import os
+from langchain_core.messages import HumanMessage
+import traceback
 
 class ZapShell(cmd.Cmd):
     intro = 'Welcome to the Zap CLI. Type help or ? to list commands.\n'
@@ -14,6 +20,7 @@ class ZapShell(cmd.Cmd):
         self.ctx = None
         self.zapper = None
         self.child_terminal = None
+        self.zapper = Zapper()
 
     # Command definitions
     def do_hello(self, arg):
@@ -39,18 +46,53 @@ class ZapShell(cmd.Cmd):
 
     def do_start(self, arg):
         """Start up the terminal session using tmux"""
-        self.zapper = Listener()
-        self.zapper.start()
+        self.listener = Listener()
+        self.listener.start()
         #self.zapper.run_subscriber()
         self.child_terminal= ChildTerminal(session_name='zapper_session')
         if self.child_terminal.open_new_terminal():
             self.child_terminal.monitor = ProcessMonitor(self.child_terminal)
             self.child_terminal.monitor.start_monitoring()
-            click.echo("tmux session and monitoring started successfully")
-            #self.term_sesh.publisher.send_json({'type': 'info', 'data': 'tmux session started'})
         else:
             click.echo("Failed to start terminal session")
 
+    def do_debug(self, entrypoint):
+        try:
+            if not entrypoint:
+                raise Exception("No command provided")
+            subprocess.run(entrypoint.split(), capture_output=True, check=True, text=True)
+            print("No error with your program! :)")
+        except subprocess.CalledProcessError as error:
+            traceback: str = error.stderr if error.stderr else str(error)
+            print(traceback)
+        except Exception as e:
+            print(e)
+
+    def do_helper(self, arg):
+        if self.zapper:
+            try:
+
+                initial_state = {
+                    "messages": [HumanMessage(content="help")],
+                    "next": "help_branch"
+                }
+
+                # Process the graph
+                for event in self.zapper.graph.stream(initial_state):
+                    for value in event.values():
+                        if "messages" in value:
+                            for message in value["messages"]:
+                                if hasattr(message, 'content'):
+                                    if message.type == "assistant":
+                                        print(f"Assistant: {message.content}")
+                                    elif message.type == "human":
+                                        print(f"You: {message.content}")
+
+            except Exception as e:
+                print(f"Error in helper: {e}")
+                traceback.print_exc()
+        else:
+            print("The zapper hasn't been initialized :(")
 
 
     def do_send(self, arg):
@@ -58,7 +100,6 @@ class ZapShell(cmd.Cmd):
         if not self.child_terminal or not self.child_terminal.is_terminal_active():
             click.echo("No active terminal session. Use 'start' first.")
             return
-
         response = self.child_terminal.send_to_terminal(arg)
         if response:
             click.echo(f"Command sent: {response}")
@@ -91,6 +132,7 @@ def cli(ctx):
         shell = ZapShell()
         shell.ctx = ctx
         shell.cmdloop()
+
 
 @cli.command()
 def version():
