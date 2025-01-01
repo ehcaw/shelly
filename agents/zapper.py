@@ -15,9 +15,11 @@ from langchain_core.tools import tool
 from langgraph.types import interrupt
 from dotenv import load_dotenv
 import os
+import subprocess
 import tomllib
 from pydantic import SecretStr, BaseModel, Field
 from utils.utils import calculate_semantic_similarity
+
 
 load_dotenv()
 
@@ -25,6 +27,8 @@ load_dotenv()
 class GraphState(TypedDict):
     messages: Annotated[list, add_messages]
     next: Optional[str]
+    counter: int
+
 
 class ErrorExplanation(BaseModel):
     error_type: str = Field(description="The type of error encountered")
@@ -75,21 +79,57 @@ class Zapper:
                     Analyze the error and provide a structured response.
                     If you are unable to provide a good structured response, do not return anything at all.
                     {format_instructions}"""),
-                    ("user", "{error_message}")])
+                    ("user", "{traceback}"),
+                    ("user", "{error_information}")])
+        traceback, error_information = state["messages"][-1]["traceback"], state["messages"][-1]["error_information"]
         formatted_prompt = prompt.format_messages(
             format_instructions=self.parser.get_format_instructions(),
-            error_message=state["messages"][-1][1]
+            traceback=traceback,
+            error_information=error_information
         )
-        response = self.llm.invoke(formatted_prompt)
+        if traceback and error_information:
+            response = self.llm.invoke(formatted_prompt)
 
-        parsed_response = self.parser.parse(str(response.content))
-        return {"messages":[{
+            parsed_response = self.parser.parse(str(response.content))
+        else:
+            parsed_response = None
+        return {"messages": state["messages"] + [{
             "role": "assistant",
-            "content": parsed_response.model_dump()
+            "content": parsed_response.model_dump() if parsed_response else ""
         }]}
-    def evaluate_input(self, state: GraphState) -> dict:
-        from langchain_core.messages import AIMessage
 
+    def run_branch(self, state: GraphState) -> dict:
+        command = state["messages"][-1]
+        try:
+            subprocess.run(command, capture_output=True, check=True, text=True)
+        except subprocess.CalledProcessError as error:
+            traceback: str = error.stderr if error.stderr else str(error)
+            error_information = str(error)
+            return {
+                "messages": state["messages"] + [
+                    {
+                        "traceback": traceback,
+                        "error_information": error_information
+                    } # the error traceback and error information are added to the graph messages
+                ],
+                "next": "analyze_branch",
+                "counter": state["counter"] + 1
+            }
+        return {
+            "messages": state["messages"] + [
+                {"traceback": None,
+                "error_information": None
+                }# the error traceback and error information are added to the graph messages
+            ],
+            "next": "analyze_branch",
+            "counter": state["counter"] + 1
+        }
+
+    def analyze_branch(self, state: GraphState):
+        error_object = state["messages"][-1]
+
+
+    def evaluate_input(self, state: GraphState) -> dict:
         last_message = state["messages"][-1]
 
         # Extract content based on message type
@@ -106,7 +146,8 @@ class Zapper:
                 "messages": state["messages"] + [
                     AIMessage(content="Routing to help...")
                 ],
-                "next": "help_branch"
+                "next": "help_branch",
+                "counter": state["counter"] + 1
             }
         elif calculate_semantic_similarity("fix", message_content) > 0.5 or \
                 calculate_semantic_similarity("debug", message_content) > 0.5:
@@ -114,45 +155,44 @@ class Zapper:
                 "messages": state["messages"] + [
                     AIMessage(content="Routing to fix...")
                 ],
-                "next": "fix_branch"
+                "next": "fix_branch",
+                "counter": state["counter"] + 1
             }
         else:
             return {
                 "messages": state["messages"] + [
                     AIMessage(content="Completing interaction...")
                 ],
-                "next": "done_branch"
+                "next": "done_branch",
+                "counter": state["counter"] + 1
             }
 
     def help_branch(self, state: GraphState) -> dict:
-            from langchain_core.messages import AIMessage
-
-            # Print the help message
-            help_message = ("I'm here to help! What would you like to know?\n"
-                           "- Type 'fix' to get help fixing an issue\n"
-                           "- Type 'help' for general assistance\n"
-                           "- Type 'done' to finish")
-
-            return {
-                "messages": state["messages"] + [
-                    AIMessage(content=help_message)
-                ],
-                "next": "wait_for_input"  # Transition to wait state
-            }
+        # Print the help message
+        help_message = ("I'm here to help! What would you like to know?\n"
+                        "- Type 'fix' to get help fixing an issue\n"
+                        "- Type 'help' for general assistance\n"
+                        "- Type 'done' to finish")
+        return {
+            "messages": state["messages"] + [
+                AIMessage(content=help_message)
+            ],
+            "next": "wait_for_input",  # Transition to wait state
+            "counter": state["counter"] + 1
+        }
 
     def fix_branch(self, state: GraphState) -> dict:
-        from langchain_core.messages import AIMessage
 
         fix_message = ("Let's fix that issue!\n"
                         "- Describe your problem in detail\n"
                         "- Type 'help' if you need different assistance\n"
                         "- Type 'done' when the issue is resolved")
-
         return {
             "messages": state["messages"] + [
                 AIMessage(content=fix_message)
             ],
-            "next": "wait_for_input"  # Transition to wait state
+            "next": "wait_for_input",  # Transition to wait state
+            "counter": state["counter"] + 1
         }
 
     def done_branch(self, state: GraphState) -> dict:
@@ -160,7 +200,8 @@ class Zapper:
             "messages": state["messages"] + [
                 AIMessage(content="Thanks for using the assistance! Goodbye!")
             ],
-            "next": END  # Signal the end of the conversation
+            "next": END, # end of conversation
+            "counter": state["counter"] + 1
         }
 
     def wait_for_input(self, state: GraphState) -> dict:
@@ -174,7 +215,8 @@ class Zapper:
                 "messages": state["messages"] + [
                     HumanMessage(content=user_input)
                 ],
-                "next": self.determine_next_step(user_input)
+                "next": self.determine_next_step(user_input),
+                "counter": state["counter"] + 1
             }
     def determine_next_step(self, user_input: str) -> str:
             """Determine next step based on user input"""
