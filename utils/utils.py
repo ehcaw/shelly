@@ -13,13 +13,12 @@ import os
 from typing import List, Set, Dict, Optional
 import ast
 import re
-import json
 import subprocess
 import signal
 from pathlib import Path
 from nltk.corpus import wordnet
 import nltk
-
+from repomixer.context_collector import ContextCollector
 
 # Example run
 def main(error_info: str, flag: Optional[str] = None, project_root: str = './'):
@@ -36,7 +35,6 @@ def main(error_info: str, flag: Optional[str] = None, project_root: str = './'):
     graph = build_adjacency_list(error_files, project_root)
     all_related_files = get_nth_related_files(error_files, graph)
     return run_mock_repopack(list(all_related_files))
-
   return run_mock_repopack(error_files)
 
 def is_project_file(file_path: str, project_root: str) -> bool:
@@ -192,6 +190,8 @@ def build_adjacency_list(files: List[str], project_root: str) -> Dict[str, List[
 
     return adjacency_list
 
+
+
 ################################################## NOT IMPLEMENTED BELOW #####################################################################
 '''
 This function uses a command and tries to check what type the file/directory is.
@@ -338,47 +338,58 @@ def detect_framework_or_language(command, directory='.'):
     },
   }
 
-def find_files_in_directory(directory, file_paths: List[str]):
+def find_files_in_directory(directory: str, file_paths: List[str]) -> Dict[str, str]:
     """
-    Find files in directory given their full or partial paths
+    Find files in a directory given their full or partial paths.
 
     Args:
-        directory (str): Root directory to search in
-        file_paths (list): List of file paths or names to find
+        directory (str): Root directory to search in.
+        file_paths (list): List of file paths or names to find.
 
     Returns:
-        dict: Dictionary mapping searched paths to found absolute paths
+        dict: Dictionary mapping searched paths to found absolute paths.
     """
-    root = Path(directory)
+    root = Path(directory).resolve()
     found_files = {}
 
     for file_path in file_paths:
         # Convert to Path object
         search_path = Path(file_path)
 
-        # If it's just a filename
+        # Strategy 1: If it's just a filename
         if len(search_path.parts) == 1:
-            matches = list(root.rglob(file_path))
+            matches = list(root.rglob(search_path.name))
             if matches:
-                found_files[file_path] = str(matches[0])
+                found_files[file_path] = str(matches[0].resolve())
+            continue  # Move to the next file_path
 
-        # If it's a partial path
-        else:
-            # Try to match the path pattern
-            pattern = str(search_path).replace('\\', '/')
+        # Strategy 2: If it's a partial path
+        # Ensure the pattern is relative by removing any leading slashes
+        pattern = search_path.as_posix().lstrip('/\\')
+
+        # rglob expects a relative pattern, so ensure it's relative
+        if pattern:
             matches = list(root.rglob(pattern))
             if matches:
-                found_files[file_path] = str(matches[0])
+                found_files[file_path] = str(matches[0].resolve())
+                continue  # Move to the next file_path
 
-            # Try to match just the filename with directory pattern
-            else:
-                filename = search_path.name
-                parent_dir = search_path.parent
+        # Strategy 3: Try to match just the filename with directory pattern
+        filename = search_path.name
+        parent_dir = search_path.parent
 
-                for possible_match in root.rglob(filename):
-                    if str(possible_match.parent).endswith(str(parent_dir)):
-                        found_files[file_path] = str(possible_match)
-                        break
+        # Iterate through all matches of the filename
+        for possible_match in root.rglob(filename):
+            try:
+                # Get the relative path from root
+                relative_match = possible_match.relative_to(root)
+                # Check if the parent_dir is a suffix of the relative path
+                if Path(parent_dir).as_posix() in relative_match.as_posix():
+                    found_files[file_path] = str(possible_match.resolve())
+                    break  # Stop after finding the first relevant match
+            except ValueError:
+                # possible_match is not under root
+                continue
 
     return found_files
 
@@ -401,6 +412,28 @@ def calculate_semantic_similarity(word1, word2):
             if sim and sim > max_sim:
                 max_sim = sim
     return max_sim
+
+def error_repomix(entry_file: str, flag: str, query: Optional[str]):
+    entry_file_path = find_files_in_directory(os.getcwd(), [entry_file])
+    cmd = ['repomix', '--output-show-line-numbers', '-o shellypack.txt']
+    match flag:
+        case "-r":
+            context_collector = ContextCollector("")
+            related_files = context_collector.collect_context(query if query else "", entry_file_path)
+            cmd.append(related_files[:])
+        case "-g":
+            cmd = cmd # repopack everything
+        case _:
+            cmd.append(entry_file_path[entry_file])
+    if os.path.exists('shellypack.txt'):
+        os.remove('shellypack.txt') # delete the repopack if it exists
+    subprocess.run(['repomix', '--output-show-line-numbers', '-o shellypack.txt']) # should add all related files to the array
+    try:
+        with open("shellypack.txt", 'r') as f:
+            print(f.read())
+        #os.remove("shellypack.txt")
+    except FileNotFoundError as e:
+        print(f'Repomix was unsuccessful...{e}')
 
 
 ################################################## NOT IMPLEMENTED ABOVE #####################################################################

@@ -1,39 +1,39 @@
 from collections import defaultdict
+from langchain_core.runnables.utils import Output
 from langchain_groq import ChatGroq
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
-from langchain_ollama import ChatOllama
+#rom langchain_openai import ChatOpenAI
+#from langchain_anthropic import ChatAnthropic
+#from langchain_ollama import ChatOllama
 from typing import Annotated, List, Optional
 from langgraph.graph.state import CompiledStateGraph
 from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
-from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.output_parsers import PydanticOutputParser, JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langchain_core.tools import tool
 from langgraph.types import interrupt
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 import os
 import subprocess
 import tomllib
 from pydantic import SecretStr, BaseModel, Field
 from utils.utils import calculate_semantic_similarity
-
-
-load_dotenv()
+from cli.child_terminal import ChildTerminal
 
 
 class GraphState(TypedDict):
     messages: Annotated[list, add_messages]
     next: Optional[str]
-    counter: int
+
 
 
 class ErrorExplanation(BaseModel):
     error_type: str = Field(description="The type of error encountered")
     explanation: str = Field(description="Detailed explanation of the error")
     suggested_fixes: List[str] = Field(description="List of potential fixes for the error")
+    code_segments: List[str] = Field(description="List of code segments to fix the errors mentioned")
 
 
 def explainer_llm_selection():
@@ -43,10 +43,11 @@ def explainer_llm_selection():
     if not api_key:
         raise ValueError("GROQ_API_KEY environment variable is not set")
     return ChatGroq(
-            model="llama-3.1-8b-instant",
+            model="llama-3.3-70b-versatile",
             api_key= SecretStr(api_key),
             temperature=0,
             stop_sequences=None,
+
     )
 def corrector_llm_selection():
     api_key = os.getenv('GROQ_API_KEY')
@@ -63,11 +64,12 @@ class Zapper:
     state: GraphState
     graph_builder: StateGraph
     graph: CompiledStateGraph
-    def __init__(self):
+    def __init__(self, terminal_session: Optional[ChildTerminal]):
         self.explainer_llm = explainer_llm_selection()
         self.corrector_llm = corrector_llm_selection()
         self.graph_builder = StateGraph(GraphState)
         self.parser = PydanticOutputParser(pydantic_object=ErrorExplanation)
+        self.child_terminal = terminal_session
         self.init_graph(self.graph_builder)
 
 
@@ -75,17 +77,24 @@ class Zapper:
         return { "messages": [self.llm.invoke(state["messages"])]}
 
     def explain_error(self, state: GraphState):
-        prompt = ChatPromptTemplate.from_messages([("system", """You are an expert programming assistant.
-                    Analyze the error and provide a structured response.
-                    If you are unable to provide a good structured response, do not return anything at all.
-                    {format_instructions}"""),
-                    ("user", "{traceback}"),
-                    ("user", "{error_information}")])
-        traceback, error_information = state["messages"][-1]["traceback"], state["messages"][-1]["error_information"]
+        """This method should be one of the nodes that generate the response for the code.
+           This node requires there to be a traceback, error_information, and code context in the state to run.
+        """
+        parse = JsonOutputParser(pydantic_object=ErrorExplanation)
+        prompt = ChatPromptTemplate.from_messages([
+                        ("system", "You are an expert software debugging assistant specializing in code error analysis. Your task is to analyze error tracebacks and provide structured, actionable advice. Follow these steps precisely:"),
+                        ("system", "1. Analyze the provided error traceback and original error message.\n2. Identify the source of the error within the repository structure.\n3. Explain the error concisely in natural language.\n4. Provide specific, actionable suggestions for resolving the error."),
+                        ("system", "Generate code that would fix the given errors and return a list of code segments, correctly formatted in the appropriate language, following the syntax rules of the lanaguage."),
+                        ("system", "{format_instructions"),
+                        ("user", "{traceback}, {error_information}, {context}")
+                    ])
+        error_object = state["messages"][-1]
+        traceback, error_information, context = error_object["traceback"], error_object["error_information"], error_object["context"]
         formatted_prompt = prompt.format_messages(
             format_instructions=self.parser.get_format_instructions(),
             traceback=traceback,
-            error_information=error_information
+            error_information=error_information,
+            context=context
         )
         if traceback and error_information:
             response = self.llm.invoke(formatted_prompt)
@@ -93,10 +102,22 @@ class Zapper:
             parsed_response = self.parser.parse(str(response.content))
         else:
             parsed_response = None
+        error_type, explanation, suggested_fixes, code_segments = "", "", "", ""
+        if parsed_response:
+            model_dump = parsed_response.model_dump()
+            error_type, explanation, suggested_fixes, code_segments = model_dump["error_type"], model_dump["explanation"], model_dump["suggested_fixes"], model_dump["code_segments"]
         return {"messages": state["messages"] + [{
             "role": "assistant",
-            "content": parsed_response.model_dump() if parsed_response else ""
+            #content": parsed_response.model_dump() if parsed_response else ""
+            "error_type": error_type,
+            "explanation": explanation,
+            "suggested_fixes": suggested_fixes,
+            "code_segments": code_segments
         }]}
+
+    #def repomix(self, state: GraphState, flag):
+
+
 
     def run_branch(self, state: GraphState) -> dict:
         command = state["messages"][-1]
@@ -113,7 +134,6 @@ class Zapper:
                     } # the error traceback and error information are added to the graph messages
                 ],
                 "next": "analyze_branch",
-                "counter": state["counter"] + 1
             }
         return {
             "messages": state["messages"] + [
@@ -122,12 +142,11 @@ class Zapper:
                 }# the error traceback and error information are added to the graph messages
             ],
             "next": "analyze_branch",
-            "counter": state["counter"] + 1
         }
 
     def analyze_branch(self, state: GraphState):
         error_object = state["messages"][-1]
-
+        traceback, error_information = error_object["traceback"], error_object["error_information"]
 
     def evaluate_input(self, state: GraphState) -> dict:
         last_message = state["messages"][-1]
@@ -147,7 +166,6 @@ class Zapper:
                     AIMessage(content="Routing to help...")
                 ],
                 "next": "help_branch",
-                "counter": state["counter"] + 1
             }
         elif calculate_semantic_similarity("fix", message_content) > 0.5 or \
                 calculate_semantic_similarity("debug", message_content) > 0.5:
@@ -156,7 +174,6 @@ class Zapper:
                     AIMessage(content="Routing to fix...")
                 ],
                 "next": "fix_branch",
-                "counter": state["counter"] + 1
             }
         else:
             return {
@@ -164,7 +181,6 @@ class Zapper:
                     AIMessage(content="Completing interaction...")
                 ],
                 "next": "done_branch",
-                "counter": state["counter"] + 1
             }
 
     def help_branch(self, state: GraphState) -> dict:
@@ -178,7 +194,6 @@ class Zapper:
                 AIMessage(content=help_message)
             ],
             "next": "wait_for_input",  # Transition to wait state
-            "counter": state["counter"] + 1
         }
 
     def fix_branch(self, state: GraphState) -> dict:
@@ -192,7 +207,6 @@ class Zapper:
                 AIMessage(content=fix_message)
             ],
             "next": "wait_for_input",  # Transition to wait state
-            "counter": state["counter"] + 1
         }
 
     def done_branch(self, state: GraphState) -> dict:
@@ -201,12 +215,10 @@ class Zapper:
                 AIMessage(content="Thanks for using the assistance! Goodbye!")
             ],
             "next": END, # end of conversation
-            "counter": state["counter"] + 1
         }
 
     def wait_for_input(self, state: GraphState) -> dict:
             """Wait for user input before continuing"""
-
             # Get user input
             user_input = input("You: ")
 
@@ -216,7 +228,6 @@ class Zapper:
                     HumanMessage(content=user_input)
                 ],
                 "next": self.determine_next_step(user_input),
-                "counter": state["counter"] + 1
             }
     def determine_next_step(self, user_input: str) -> str:
             """Determine next step based on user input"""
@@ -342,9 +353,9 @@ class Zapper:
             print(fix)
 
 def main():
-    zapper = Zapper()
+    #zapper = Zapper()
     #zapper.stream_graph_updates("tell me about langchain")
-
+    print('hello')
 
 if __name__ == "__main__":
     main()

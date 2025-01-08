@@ -7,7 +7,6 @@ import zlib
 import subprocess
 import traceback
 import time
-import os
 
 class ChildTerminal:
     monitor: Optional[ProcessMonitor]

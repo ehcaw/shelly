@@ -16,3 +16,4 @@ langchain_anthropic
 langchain_groq
 langchain
 spacy
+nltk

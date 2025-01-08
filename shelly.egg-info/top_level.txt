@@ -1,4 +1,4 @@
 agents
 cli
-splat
+shelly
 utils

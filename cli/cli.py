@@ -71,29 +71,59 @@ class ZapShell(cmd.Cmd):
     def do_helper(self, arg):
         if self.zapper:
             try:
-
                 initial_state = {
                     "messages": [HumanMessage(content="help")],
-                    "next": "help_branch"
+                    "next": "help_branch",
                 }
+                seen_messages = set()
 
-                # Process the graph
                 for event in self.zapper.graph.stream(initial_state):
                     for value in event.values():
-                        if "messages" in value:
-                            for message in value["messages"]:
-                                if hasattr(message, 'content'):
-                                    if message.type == "assistant":
-                                        print(f"Assistant: {message.content}")
-                                    elif message.type == "human":
-                                        print(f"You: {message.content}")
+                        if "messages" not in value:
+                            continue
 
+                        # Get only new messages
+                        new_messages = [
+                            msg for msg in value["messages"]
+                            if msg.content not in seen_messages
+                        ]
+
+                        for message in new_messages:
+                            if not hasattr(message, 'content'):
+                                continue
+
+                            # Add to seen messages
+                            seen_messages.add(message.content)
+
+                            # Print with appropriate prefix
+                            if message.type == "assistant":
+                                print(f"\nAssistant: {message.content}")
+                            elif message.type == "human":
+                                print(f"\nYou: {message.content}")
+
+                            # If message contains file context, format it nicely
+                            #if "file_context" in value:
+                                #self.format_file_context(value["file_context"])
             except Exception as e:
                 print(f"Error in helper: {e}")
                 traceback.print_exc()
         else:
-            print("The zapper hasn't been initialized :(")
+            print("The zapper hasn't been initialized :( please try again")
+            return
 
+    def do_run(self, arg):
+        command = input()
+        try:
+            process = subprocess.run(command.split(), capture_output=True, check=True, text=True)
+            output = process.stdout if process.stdout else ""
+            print(output)
+        except subprocess.CalledProcessError as error:
+            traceback: str = error.stderr if error.stderr else str(error)
+            error_information = str(error)
+            print(traceback)
+            print(error_information)
+        except FileNotFoundError as e:
+            print(e)
 
     def do_send(self, arg):
         """Send a command to the terminal"""
