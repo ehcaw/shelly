@@ -39,7 +39,78 @@ class CommandParser:
         Assistant: {
             "tool_name": "conversational_response",
             "tool_args": {"user_input": "What is the best way to learn python"},
+        }
 
+        User: "Run the script located at /path/to/script.py"
+        Assistant: {
+            "tool_name": "run_code",
+            "tool_args": {"path": "/path/to/script.py"},
+        }
+
+        User: "Open a new terminal session for monitoring"
+        Assistant: {
+            "tool_name": "open_terminal",
+            "tool_args": {},
+        }
+
+        User: "Can you debug this function? def add(a, b): return a + b"
+        Assistant: {
+            "tool_name": "debug_code",
+            "tool_args": {"code": "def add(a, b): return a + b"},
+        }
+
+        User: "Generate a Python class for a simple calculator"
+        Assistant: {
+            "tool_name": "write_code",
+            "tool_args": {"spec": "Generate a Python class for a simple calculator"},
+        }
+
+        User: "How do I install packages using pip?"
+        Assistant: {
+            "tool_name": "conversational_response",
+            "tool_args": {"user_input": "How do I install packages using pip"},
+        }
+
+        User: "Execute the file main.py in the current directory"
+        Assistant: {
+            "tool_name": "run_code",
+            "tool_args": {"path": "./main.py"},
+        }
+
+        User: "Start a terminal session to monitor logs"
+        Assistant: {
+            "tool_name": "open_terminal",
+            "tool_args": {},
+        }
+
+        User: "Help me debug this error: def divide(a, b): return a / b"
+        Assistant: {
+            "tool_name": "debug_code",
+            "tool_args": {"code": "def divide(a, b): return a / b"},
+        }
+
+        User: "Write a function to sort a list of numbers"
+        Assistant: {
+            "tool_name": "write_code",
+            "tool_args": {"spec": "Write a function to sort a list of numbers"},
+        }
+
+        User: "What are the best practices for writing clean code?"
+        Assistant: {
+            "tool_name": "conversational_response",
+            "tool_args": {"user_input": "What are the best practices for writing clean code"},
+        }
+
+        User: "Run the test suite located at /tests"
+        Assistant: {
+            "tool_name": "run_code",
+            "tool_args": {"path": "/tests"},
+        }
+
+        User: "Open a terminal to run live commands"
+        Assistant: {
+            "tool_name": "open_terminal",
+            "tool_args": {},
         }
         """
 
@@ -67,7 +138,7 @@ class CommandParser:
             raise ValueError("GROQ_API_KEY environment variable is not set")
         # Initialize the LLM
         self.llm = ChatGroq(
-                model="llama-3.2-8b",
+                model="llama3-8b-8192",
                 api_key= SecretStr(api_key),
                 temperature=0,
                 stop_sequences=None)
@@ -76,6 +147,7 @@ class CommandParser:
         # Format the prompt with our tool descriptions and user input
         formatted_prompt = self.prompt.format_messages(
             tool_descriptions=self.tool_descriptions,
+            examples=self.examples,
             user_input=user_input
         )
 

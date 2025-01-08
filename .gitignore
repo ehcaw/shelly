@@ -9,3 +9,5 @@ __pycache__/*
 ./zapenv
 
 notes.txt
+
+shelly-config.toml

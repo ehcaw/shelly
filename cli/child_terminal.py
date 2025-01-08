@@ -1,4 +1,4 @@
-from process_monitor import ProcessMonitor
+from .process_monitor import ProcessMonitor
 from typing import Optional
 import zmq
 import platform

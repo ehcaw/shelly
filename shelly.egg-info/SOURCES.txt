@@ -2,9 +2,11 @@ README.md
 setup.py
 agents/__init__.py
 agents/agents.py
+agents/command_parser.py
 agents/file_writer_agent.py
 agents/interaction.py
 agents/splatter.py
+agents/test.py
 agents/zapper.py
 cli/__init__.py
 cli/child_terminal.py

@@ -16,8 +16,6 @@ import re
 import subprocess
 import signal
 from pathlib import Path
-from nltk.corpus import wordnet
-import nltk
 from repomixer.context_collector import ContextCollector
 
 # Example run
@@ -392,8 +390,7 @@ def find_files_in_directory(directory: str, file_paths: List[str]) -> Dict[str, 
                 continue
 
     return found_files
-
-nltk.download('wordnet')
+'''
 def calculate_semantic_similarity(word1, word2):
     # Get synsets for both words
     synsets1 = wordnet.synsets(word1)
@@ -412,6 +409,7 @@ def calculate_semantic_similarity(word1, word2):
             if sim and sim > max_sim:
                 max_sim = sim
     return max_sim
+    '''
 
 def error_repomix(entry_file: str, flag: str, query: Optional[str]):
     entry_file_path = find_files_in_directory(os.getcwd(), [entry_file])
