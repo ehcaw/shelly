@@ -56,6 +56,8 @@ class Shelly(App):
     """
     def __init__(self):
         super().__init__()
+        self._state_observers = []
+        self._last_state = None
         self.tools = {
             "debug_code": Tool(
                 name="debug_code",
@@ -102,6 +104,22 @@ class Shelly(App):
         )
         self.graph = self.setup_graph()
 
+    def add_state_observer(self, observer):
+        self._state_observers.append(observer)
+
+    def _check_state_changes(self, new_state: GraphState):
+        if self._last_state is None:
+            # this is the first state update
+            for observer in self._state_observers:
+                observer("current_input", new_state["current_input"])
+        else:
+            # check for changes in current input
+            if new_state["current_input"] != self._last_state["current_input"]:
+                for observer in self._state_observers:
+                    observer("current_input", new_state["current_input"])
+
+        self._last_state = new_state.copy()
+
     def compose(self):
         """Create ui loadout"""
         with Vertical():
@@ -112,24 +130,31 @@ class Shelly(App):
         """Handle user input"""
         input_text = message.value
 
-        # Update state and run through graph
-        input_text = message.value
-
-        # Update the current state with new input
-        self.state["messages"].append({"role": "user", "content": input_text})
-        self.state["current_input"] = input_text
-
-        # Clear the input field
+        # Clear the input field immediately
         input_widget = self.query_one("#user_input", Input)
         input_widget.value = ""
 
         try:
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, self.graph.invoke, self.state)
+            # Reset state for new input while preserving message history
+            self.state["messages"].append({"role": "user", "content": input_text})
+            self.state["current_input"] = input_text
+            self.state["action_input"] = {}
+            self.state["action_output"] = ""
+            self.state["should_end"] = False
 
+            #self._check_state_changes(self.state)
+
+            # Run one pass through the graph
+            #loop = asyncio.get_event_loop()
+            #await loop.run_in_executor(None, self.graph.invoke, self.state)
+            updated_state = await self.graph.ainvoke(self.state)
+            self.state = updated_state
             # Update output log
             output_log = self.query_one("#output", RichLog)
-            output_log.write(f"Response: {self.state["action_output"]}")
+            output_log.write(f"Action output: {self.state['action_output']}")
+            output_log.write(f"Response: {self.state['messages']}")
+            output_log.write(f"Graph returned state: {json.dumps(updated_state, indent=2)}")
+
         except Exception as e:
             output_log = self.query_one("#output", RichLog)
             output_log.write(f"Error: {str(e)}")
@@ -149,6 +174,12 @@ class Shelly(App):
         # Add any cleanup code here
         if self.child_terminal:
             self.child_terminal.kill_tmux_session()
+
+    async def on_state_change(self, key: str, value: Any):
+        """Example observer function"""
+        if key == "current_input":
+            output_log = self.query_one("#output", RichLog)
+            output_log.write(f"Input changed to: {value}")
 
 #### TOOL DEFINITIONS #######################################################################################################
     def debug_code(self, code: str, state: GraphState) -> GraphState:
@@ -221,7 +252,7 @@ class Shelly(App):
         state["messages"].append({"role": "assistant", "content": parsed_response})
         state["current_input"] = ""
         state["action_input"] = {}
-        state["action_output"] = parsed_response
+        state["action_output"] = f"bakaaa {parsed_response}"
         state["should_end"] = False
         state["tool_history"].append({"tool_name": "conversational_response", "args": {"input": input}, "result": parsed_response})
         state["last_tool_invoked"] = "conversational_response"
@@ -235,48 +266,34 @@ class Shelly(App):
 
     def setup_graph(self):
         workflow = StateGraph(GraphState)
-
-        #workflow.add_node("parse", lambda x: asyncio.run(self.parse_message(x)))
-        #workflow.add_node("parse", self.parse_message)
-        #workflow.add_node("execute", lambda x: asyncio.run(self.execute_action(x)))
-        #workflow.add_node("execute", self.execute_action)
-
-        #workflow.add_node("parse", lambda state: asyncio.create_task(self.parse_message(state)))
-        #workflow.add_node("execute", lambda state: asyncio.create_task(self.execute_action(state)))
-
         workflow.add_node("parse", self.sudo_async_parse_message)
         workflow.add_node("execute", self.sudo_async_execute_action)
 
+        # Simple linear flow: START → parse → execute → END
         workflow.add_edge(START, "parse")
+        workflow.add_edge("parse", "execute")
+        workflow.add_edge("execute", END)
 
-        workflow.add_conditional_edges(
-            "parse",
-            self.should_continue,
-            {
-                "continue": "execute",
-                "end": END
-            }
-        )
-
-        workflow.add_conditional_edges(
-            "execute",
-            self.should_continue,
-            {
-                "continue": "parse",
-                "end": END
-            }
-        )
-        #checkpointer = MemorySaver()
         return workflow.compile()
 
     async def parse_message(self, state: GraphState) -> GraphState:
         try:
-            context = "\n".join([
+            '''context = "\n".join([
                 f"{msg['role']}: {msg['content']}"
                 for msg in state["messages"][-5:]
-            ])
+            ])'''
+            context = state["current_input"]
+
+            output_log = self.query_one("#output", RichLog)
+            output_log.write(f"context: {context}")
+
 
             parsed_response = await self.command_parser.parse_command(context)
+
+            output_log = self.query_one("#output", RichLog)
+            output_log.write(f"command parser: {parsed_response}")
+
+
 
             tool_name = parsed_response["tool_name"]
             tool_args = parsed_response["tool_args"]
@@ -289,22 +306,19 @@ class Shelly(App):
             return state
         except Exception as e:
             state["action_output"] = f"Error parsing message: {str(e)}"
-            state["should_end"] = True
             return state
 
     def sudo_async_parse_message(self, state: GraphState) -> GraphState:
         try:
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            parsed_response = loop.run_until_complete(self.parse_message(state))
+            updated_state = asyncio.run(self.parse_message(state))
+            state["action_input"] = updated_state["action_input"]
+            output_log = self.query_one("#output", RichLog)
+            output_log.write(f"command parser: {state["action_input"]}")
             return state
         except Exception as e:
+            with open('debug.log', 'a') as f:
+                f.write(f"Parse message error: {str(e)}\n")
             state["action_output"] = f"Error parsing message: {str(e)}"
-            state["should_end"] = True
             return state
 
         #return await self.parse_message(state)
@@ -328,8 +342,7 @@ class Shelly(App):
             else:
                 result = tool.invoke(**tool_args)
 
-            state["action_output"] = result
-            state["should_end"] = True
+            state["action_output"] = str(result)
             return state
         except Exception as e:
             state["action_output"] = f"Error executing action: {str(e)}"
@@ -342,16 +355,23 @@ class Shelly(App):
             except RuntimeError:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-            parsed_response = loop.run_until_complete(self.execute_action(state))
+
+            # Execute and get the updated state
+            updated_state = loop.run_until_complete(self.execute_action(state))
+
+            # Ensure we're properly copying the updated values back to the original state
+            state["action_output"] = updated_state["action_output"]
+            state["should_end"] = updated_state["should_end"]
+
             return state
         except Exception as e:
             state["action_output"] = f"Error executing action: {str(e)}"
-            state["should_end"] = True
             return state
 
     async def on_mount(self) -> None:
         # Existing UI setu
         # Initialize and run the workflow
+        self.add_state_observer(self.on_state_change)
         self.state = GraphState(
             messages=[],
             tools=self.tools,

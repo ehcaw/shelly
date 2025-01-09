@@ -1,5 +1,6 @@
 from typing import TypedDict, List, Optional, Union, Dict, Any
 from langchain.prompts import ChatPromptTemplate
+from langchain_core.output_parsers.list import T
 from langchain_groq import ChatGroq
 from langchain.schema import BaseMessage
 from pydantic import SecretStr
@@ -13,11 +14,14 @@ class ParsedCommand(TypedDict):
 
 class CommandParser:
     def __init__(self, available_tools: List[Tool]):
-        self.available_tools = available_tools
+        self.available_tools = [{
+            "name": tool.name,
+            "description": tool.description
+        } for tool in available_tools]
 
         self.tool_descriptions = "\n".join([
-            f"- {tool.name}: {tool.description}"
-            for tool in available_tools
+            f"- {tool['name']}: {tool['description']}"
+            for tool in self.available_tools
         ])
 
         # Few-shot examples to help the llm classify actions to do
@@ -115,18 +119,41 @@ class CommandParser:
         """
 
         self.prompt = ChatPromptTemplate.from_messages([
-                    ("system", """You are a command parser for an AI assistant. Your job is to analyze user input and determine which tool to handle the input with. There is a tool to handle the case
-                        where you should respond as if it was a conversation.
+                    ("system", """You are a command parser that must return VALID JSON matching this exact structure:
+                        {
+                            "tool_name": "<exact tool name>",
+                            "tool_args": {
+                                // tool specific arguments
+                                "state": {}
+                            }
+                        }
 
-        Available tools:
+        Available tools and their exact names:
         {tool_descriptions}
 
         Rules:
-        1. If the user's request matches a tool's functionality, specify the tool_name and tool_args
-        2. If the request is a general question or conversation, specify the tool name to be "conversation_response" and pass the user input as args
-        3. Always respond in valid JSON format matching the example structure
-        4. Tool arguments should be relevant to the tool's purpose
-        5. Be precise in tool selection - only use a tool if the request clearly matches its purpose
+        1. You MUST use EXACT tool names as listed above
+        2. Tool arguments must match exactly what the tool expects
+        3. For general questions or conversation, use "conversational_response"
+        4. Response must be valid JSON matching the example structure
+        5. Always include "state" in tool_args
+        6. For run_code, include both "state" and "spec" in tool_args
+        7. For general questions use:
+           {
+               "tool_name": "conversational_response",
+               "tool_args": {
+                   "input": "<user's message>",
+                   "state": {}
+               }
+           }
+        8. For code debugging use:
+           {
+               "tool_name": "debug_code",
+               "tool_args": {
+                   "code": "<code to debug>",
+                   "state": {}
+               }
+           }
 
         {examples}
         """),
@@ -142,32 +169,98 @@ class CommandParser:
                 api_key= SecretStr(api_key),
                 temperature=0,
                 stop_sequences=None)
+
     async def parse_command(self, user_input: str) -> ParsedCommand:
         """Parse user input to determine if it should use a tool or conversational response"""
-        # Format the prompt with our tool descriptions and user input
-        formatted_prompt = self.prompt.format_messages(
-            tool_descriptions=self.tool_descriptions,
-            examples=self.examples,
-            user_input=user_input
-        )
+        try:
+            # Format the prompt with our tool descriptions and user input
+            formatted_prompt = self.prompt.format_messages(
+                tool_descriptions=self.tool_descriptions,
+                examples=self.examples,
+                user_input=user_input
+            )
 
-        # Get LLM response
-        response: BaseMessage = await self.llm.ainvoke(formatted_prompt)
+            # Add debugging
+            print("Sending prompt to LLM:", formatted_prompt)
 
-        # Extract the content from the BaseMessage object
-        response_content = response.content if hasattr(response, 'content') else str(response)
+            # Get LLM response
+            response: BaseMessage = await self.llm.ainvoke(formatted_prompt)
 
-        # Ensure response_content is a string
-        if isinstance(response_content, str):
-            parsed_response = json.loads(response_content)
-        else:
-            raise ValueError("Response content is not a valid JSON string")
+            # Debug raw response
+            print("Raw LLM response:", response)
 
-        if not isinstance(parsed_response, dict):
-            raise ValueError("Parsed response is not a dictionary")
+            # Extract content and ensure it's a string
+            response_content = response.content if hasattr(response, 'content') else str(response)
+            print("Response content:", response_content)
 
-        # Ensure the parsed response matches the structure of ParsedCommand
-        return ParsedCommand(
-            tool_name=parsed_response.get("tool_name"),
-            tool_args=parsed_response.get("tool_args"),
-        )
+            # Parse JSON carefully
+            try:
+                parsed_response = json.loads(str(response_content))
+            except json.JSONDecodeError as e:
+                print(f"JSON parsing error: {e}")
+                # Default to conversation if parsing fails
+                return ParsedCommand(
+                    tool_name="conversational_response",
+                    tool_args={"input": user_input, "state": {}}
+                )
+
+            print("Parsed response:", parsed_response)
+
+            # Validate the response structure
+            if not isinstance(parsed_response, dict):
+                raise ValueError(f"Expected dict, got {type(parsed_response)}")
+
+            tool_name = parsed_response.get("tool_name")
+            tool_args = parsed_response.get("tool_args", {})
+
+            # Validate and ensure proper tool selection
+            if not tool_name:
+                return ParsedCommand(
+                    tool_name="conversational_response",
+                    tool_args={"input": user_input, "state": {}}
+                )
+
+            # For conversational responses, ensure proper format
+            if tool_name == "conversational_response":
+                return ParsedCommand(
+                    tool_name="conversational_response",
+                    tool_args={"input": user_input, "state": {}}
+                )
+
+            # For other tools, ensure proper args structure
+            if tool_name in self.available_tools:
+                # Ensure state is present
+                if "state" not in tool_args:
+                    tool_args["state"] = {}
+
+                # Special handling for run_code
+                if tool_name == "run_code":
+                    tool_args.setdefault("spec", "")
+                    tool_args.setdefault("path", "")
+
+                # Special handling for debug_code
+                if tool_name == "debug_code":
+                    tool_args.setdefault("code", user_input)
+
+                # Special handling for write_code
+                if tool_name == "write_code":
+                    tool_args.setdefault("spec", user_input)
+
+                return ParsedCommand(
+                    tool_name=str(tool_name),
+                    tool_args=tool_args
+                )
+            else:
+                # If tool_name is invalid, default to conversation
+                return ParsedCommand(
+                    tool_name="conversational_response",
+                    tool_args={"input": user_input, "state": {}}
+                )
+
+        except Exception as e:
+            print(f"Error in parse_command: {str(e)}")
+            # Default to conversation on error
+            return ParsedCommand(
+                tool_name="conversational_response",
+                tool_args={"input": user_input, "state": {}}
+            )
