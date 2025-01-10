@@ -188,12 +188,3 @@ class CommandParser:
                 tool_name="conversational_response",
                 tool_args={"input": user_input, "state": {}}
             )
-
-def debug_code():
-    print('debug')
-
-def conversational_response():
-    print('conversation')
-
-def run_code():
-    print('run code')

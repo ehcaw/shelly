@@ -6,7 +6,6 @@ import json
 import subprocess
 import shlex
 import re
-from langgraph.graph.message import add_messages
 from langchain.agents import Tool
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
@@ -76,6 +75,17 @@ class Zap:
                 ("user", "Code: {code}")
             ]
         )
+        self.state = GraphState(
+            messages=[],
+            tools=self.tools,
+            current_input="",
+            action_input={},
+            action_output="",
+            tool_history=[],
+            context_summary="",
+            last_tool_invoked=None,
+            should_end=False
+        )
     def clean_json_string(self, content: str) -> str:
         # Remove actual newlines and normalize escape sequences
         content = content.replace('\n', '\\n').replace('\r', '')
@@ -90,10 +100,12 @@ class Zap:
 
         workflow.add_node("parse_message", self.parse_message)
         workflow.add_node("execute_action", self.execute_action)
+        workflow.add_node("update_state", self.update_state)
 
         workflow.add_edge(START, "parse_message")
         workflow.add_edge("parse_message", "execute_action")
-        workflow.add_edge("execute_action", END)
+        workflow.add_edge("execute_action", "update_state")
+        workflow.add_edge("update_state", END)
 
         return workflow.compile()
 
@@ -112,7 +124,6 @@ class Zap:
                 {"role": "system", "content": command_json}
             ]
         }
-
 
     def execute_action(self, state: GraphState):
         print("=== DEBUG ===")
@@ -135,12 +146,11 @@ class Zap:
             print(f"Parsed content: {last_response_content}")
 
             if last_response_content["tool_name"] == "conversational_response":
-                self.conversational_response(state)
+                return self.conversational_response(state)
             if last_response_content["tool_name"] == "run_code":
-                self.run_code(state)
-
+                return self.run_code(state)
             if last_response_content["tool_name"] == "fix_code":
-                self.fix_code(state)
+                return self.fix_code(state)
 
         except json.JSONDecodeError as e:
             print(f"JSON Decode Error: {e}")
@@ -148,6 +158,9 @@ class Zap:
         except Exception as e:
             print(f"Other error: {type(e)}: {e}")
 
+    def update_state(self, state: GraphState):
+        self.state = state
+        return state
 
     #======= TOOLS DEFINED HERE ================================================================#
     def debug_code(self, state: GraphState):
@@ -248,7 +261,8 @@ class Zap:
             response_content = str(llm_response)
 
         # Update state with the response
-        state["action_output"] = str(response_content)
+        print(f"response contnet: {response_content}")
+        state["action_output"] = response_content
         state["messages"] = state["messages"] + [{"role": "assistant", "content": response_content}]
         return state
 
@@ -259,7 +273,7 @@ def main():
         tools=zap.tools,
         current_input="",
         action_input={},
-        action_output="Welcome to Shelly!",
+        action_output="",
         tool_history=[],
         context_summary="",
         last_tool_invoked=None,
@@ -276,9 +290,13 @@ def main():
                 count + 1
                 total = total + numbers[count]
             return total / count"""}]
+    '''
     for event in zap.graph.stream(zap.state):
         for value in event.values():
             print(value)
-    print(f"final state: {str(zap.graph)}")
+    '''
+    zap.graph.invoke(zap.state)
+    print(zap.state["action_output"])
 
-main()
+
+#main()
