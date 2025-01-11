@@ -215,9 +215,9 @@ class Zap:
 
             return_code = process.wait()
 
-            print('\n'.join(stdout), '\n'.join(stderr), return_code)
+            state = self.action_output_helper(state, str({"output": stdout}))
 
-            return '\n'.join(stdout), '\n'.join(stderr), return_code
+            return state
             print("Nothing wrong with program")
             print(process.stdout)
         except FileNotFoundError as e:
@@ -225,10 +225,11 @@ class Zap:
         except subprocess.CalledProcessError as error:
             traceback: str = error.stderr if error.stderr else str(error)
             error_information: str = str(error)
-            print(f"traceback: {traceback}")
-            print(f"error_information: {error_information}")
+            state = self.action_output_helper(state, str({"traceback": traceback, "error_information": error_information}))
+            return state
         except Exception as e:
-            print(str(e))
+            state = self.action_output_helper(state, str(e))
+            return state
 
     def fix_code(self, state: GraphState):
         last_response = state["messages"][-1]

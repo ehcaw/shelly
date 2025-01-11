@@ -7,9 +7,8 @@ from graph import Zap
 import os
 import asyncio
 from dotenv import load_dotenv
-from textual.widgets import RichLog, Input
-from textual.containers import Horizontal, Vertical
-
+from textual.widgets import RichLog, Input, TextArea
+from textual.containers import Vertical
 
 load_dotenv()
 
@@ -77,7 +76,8 @@ class Shelly(App):
     def compose(self):
         """Create ui loadout"""
         with Vertical():
-               yield Input(id="user_input", placeholder="Type your message here...")
+               #yield Input(id="user_input", placeholder="Type your message here..")
+               yield CustomTextArea(app=self, id="user_input", theme="monokai")
                yield RichLog(id="output", wrap=True)
 
 
@@ -106,10 +106,10 @@ class Shelly(App):
             output_log.write(f"\nState initialized: {hasattr(self, 'state')}")
             output_log.write(f"\nAvailable tools: {len(self.zapper.tools) if hasattr(self.zapper, 'tools') else 'No tools'}")
             output_log.write(f"\nGraph nodes: {len(self.zapper.graph.nodes) if hasattr(self.zapper, 'graph') else 'No graph'}")
-
+    '''
     async def on_input_submitted(self, message: Input.Submitted) -> None:
         """Handle input submission"""
-        input_widget = self.query_one("#user_input", Input)
+        input_widget = self.query_one("#user_input", Custom)
         output_log = self.query_one("#output", RichLog)
 
         user_input = message.value
@@ -122,6 +122,7 @@ class Shelly(App):
 
         # Use call_later to allow the UI to update
         self.process_input(user_input, output_log)
+        '''
 
     def process_input(self, user_input: str, output_log: RichLog) -> None:
         """Process input through the graph"""
@@ -158,8 +159,30 @@ class Shelly(App):
     # Existing UI setu
         # Initialize and run the workflow
         # Set focus to the input widget
-        input_widget = self.query_one("#user_input", Input)
+        input_widget = self.query_one("#user_input", CustomTextArea)
         input_widget.focus()
+
+class CustomTextArea(TextArea):
+    """A TextArea with custom key bindings."""
+    def __init__(self, app: Shelly, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._shelly_app = app
+        self.last_submitted_position = 0
+
+    async def on_key(self, event):
+        """Handle key press events."""
+        output_log = self._shelly_app.query_one("#output", RichLog)
+        if event.key == "cmd+enter" or event.key == "ctrl+enter":
+            content = self.text[self.last_submitted_position:]
+            self.last_submitted_position = len(content)
+            if content.strip():
+                output_log.write(f"input: {content}")
+                self._shelly_app.process_input(content, output_log)
+        else:
+            # Allow default key handling
+            await super()._on_key(event)
+
+
 
 async def main():
     try:
