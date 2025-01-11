@@ -20,5 +20,7 @@ shelly.egg-info/entry_points.txt
 shelly.egg-info/requires.txt
 shelly.egg-info/top_level.txt
 test/test.py
+types/__init__.py
+types/types.py
 utils/__init__.py
 utils/utils.py

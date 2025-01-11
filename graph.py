@@ -13,26 +13,21 @@ from agents.command_parser import CommandParser
 from langchain.prompts import ChatPromptTemplate
 import threading
 import logging
+from shelly_types.types import GraphState
+from textual.widgets import RichLog
+from typing import Optional
 
 
 load_dotenv()
 
 logging.basicConfig(level=logging.ERROR)
 
-class GraphState(TypedDict):
-    messages: List[Dict[str, str]]  # List of all messages in conversation
-    tools: Dict[str, Callable] # Dictionary of all the tools that the graph can use
-    current_input: str # The current user input
-    action_input: dict # The input for the current action to be executed
-    action_output: str # The output from the last executed action
-    tool_history: List[Dict[str, Any]]
-    context_summary: str
-    last_tool_invoked: Optional[str]
-    should_end: bool # Flag to determine if application should stop
+
 
 class Zap:
     state: GraphState
-    def __init__(self):
+    output_log: RichLog
+    def __init__(self, output_log: Optional[RichLog]):
         self.graph = self.setup_graph()
         api_key = os.getenv('GROQ_API_KEY')
         if not api_key:
@@ -81,6 +76,7 @@ class Zap:
             current_input="",
             action_input={},
             action_output="",
+            current_action_list=[],
             tool_history=[],
             context_summary="",
             last_tool_invoked=None,
@@ -115,46 +111,55 @@ class Zap:
         user_input = state["messages"][-1]["content"]
         parsed_command = self.command_parser.parse_command(user_input)
 
-        print(f'parsed command: {parsed_command}')
-        # Convert to JSON-safe format
-        command_json = json.dumps(parsed_command)
 
-        return {
+        '''return {
             "messages": state["messages"] + [
-                {"role": "system", "content": command_json}
+                {"role": "assistant", "content": parsed_command}
             ]
+        }'''
+        print(f"parsed command: {parsed_command}")
+        return {
+            "current_action_list": parsed_command
         }
 
     def execute_action(self, state: GraphState):
-        print("=== DEBUG ===")
-        print(f"State messages: {state['messages']}")
 
         last_response = state["messages"][-1]
-        print(f"Last response: {last_response}")
-        print(f"Content type: {type(last_response['content'])}")
-        print(f"Raw content: {repr(last_response['content'])}")  # Use repr to see exact string content
 
         try:
-            content = last_response["content"]
-            if not content or content.isspace():
-                print("Content is empty or whitespace")
+            last_response_content = last_response["content"]
+            if not last_response_content or len(last_response_content) == 0:
+                print("Content is empty")
                 return
+            #last_response_content = json.loads(last_response_content)
+            # content is a list of tools for the graph to execute
+            '''
+            for step in last_response_content:
+                print(step)
+                #step = json.loads(str(step).replace("'",'"'))
 
-            # Try to parse JSON
-            print("Attempting to parse JSON...")
-            last_response_content = json.loads(self.clean_json_string(content))
-            print(f"Parsed content: {last_response_content}")
-
-            if last_response_content["tool_name"] == "conversational_response":
-                return self.conversational_response(state)
-            if last_response_content["tool_name"] == "run_code":
-                return self.run_code(state)
-            if last_response_content["tool_name"] == "fix_code":
-                return self.fix_code(state)
+                if step["tool_name"] == "conversational_response":
+                    state = self.conversational_response(state)
+                if step["tool_name"] == "run_code":
+                    state = self.run_code(state)
+                if step["tool_name"] == "fix_code":
+                    state = self.fix_code(state)
+                '''
+            for action_to_take in state["current_action_list"]:
+                state["action_input"] = dict(action_to_take)
+                if action_to_take["tool_name"] == "conversational_response":
+                    state = self.conversational_response(state)
+                if action_to_take["tool_name"] == "run_code":
+                    state = self.run_code(state)
+                if action_to_take["tool_name"] == "fix_code":
+                    state = self.fix_code(state)
+                #self.output_log.write(f"\n: Assistant: {state["action_output"]}")
+                print(f"\nAssistant: {state["action_output"]}")
+            return state
 
         except json.JSONDecodeError as e:
             print(f"JSON Decode Error: {e}")
-            print(f"Failed to parse content: {content}")
+            print(f"Failed to parse content: {last_response_content}")
         except Exception as e:
             print(f"Other error: {type(e)}: {e}")
 
@@ -168,8 +173,10 @@ class Zap:
 
     def conversational_response(self, state: GraphState):
         print(f'conversational_response: {state["messages"]}')
-        last_response = state["messages"][-1]
-        last_response_content = json.loads(last_response["content"].replace("'", '"'))
+        #last_response = state["messages"][-1]
+
+        #last_response_content = json.loads(last_response["content"].replace("'", '"'))
+        last_response_content = state["action_input"]
         customized_prompt = ChatPromptTemplate([
             ("system", """You are a professional and specialized expert in computer programming. Your job is to respond to the user
                 in a explanatory and concise manner."""),
@@ -188,8 +195,9 @@ class Zap:
 
     # it returns a file path ie: main.py-> need to convert to python3 main.py for subprocess.run to work
     def run_code(self, state: GraphState):
-        last_response = state["messages"][-1]
-        last_response_content = json.loads(last_response["content"].replace("'",'"'))
+        #last_response = state["messages"][-1]
+        #last_response_content = json.loads(last_response["content"].replace("'",'"'))
+        last_response_content = state["action_input"]
         try:
             program_path = last_response_content["tool_args"]["path"]
             if not program_path:
@@ -214,14 +222,12 @@ class Zap:
             stderr_thread.join()
 
             return_code = process.wait()
-
             state = self.action_output_helper(state, str({"output": stdout}))
-
             return state
-            print("Nothing wrong with program")
-            print(process.stdout)
         except FileNotFoundError as e:
             print(str(e))
+            state = self.action_output_helper(state, "The file wasn't found")
+            return state
         except subprocess.CalledProcessError as error:
             traceback: str = error.stderr if error.stderr else str(error)
             error_information: str = str(error)
@@ -232,23 +238,25 @@ class Zap:
             return state
 
     def fix_code(self, state: GraphState):
-        last_response = state["messages"][-1]
-        last_response_content = json.loads(self.clean_json_string(last_response["content"]))
+        #last_response = state["messages"][-1]
+        #last_response_content = json.loads(self.clean_json_string(last_response["content"]))
+        last_response_content = state["action_input"]
         print(f"last response contnet: {last_response_content}")
         print(f"type of last response: {type(last_response_content)}")
-        user_input, context = last_response_content["tool_args"]["code"], last_response_content["tool_args"]["context"]
+        user_input, context = last_response_content["tool_args"]["code"], last_response_content["tool_args"]["context"] if "context" in last_response_content["tool_args"] else ""
         parameterized_bug_fixer_prompt = self.bug_fixer_prompt.format_messages(
-            context = context if context else "",
+            context = context,
             code = user_input
         )
         response = self.versatile_llm.invoke(parameterized_bug_fixer_prompt)
 
         state = self.action_output_helper(state, response)
+        return state
 
     def write_code(self, state: GraphState):
-        last_response = state["messages"][-1]
-        last_response_content = json.loads(last_response["content"].replace("'", '"'))
-
+        #last_response = state["messages"][-1]
+        #last_response_content = json.loads(last_response["content"].replace("'", '"'))
+        last_response_content = state["action_input"]
 
 
     #======= TOOLS DEFINED HERE ==============================================================#
@@ -268,18 +276,7 @@ class Zap:
         return state
 
 def main():
-    zap = Zap()
-    zap.state = GraphState(
-        messages=[],
-        tools=zap.tools,
-        current_input="",
-        action_input={},
-        action_output="",
-        tool_history=[],
-        context_summary="",
-        last_tool_invoked=None,
-        should_end=False
-    )
+    zap = Zap(output_log=None)
     #zap.state["messages"] = [{"role": "user", "content": "what is a binary tree"}]
     #zap.state["messages"] = [{"role": "user", "content": "execute ./test/test.js"}]
 
@@ -290,7 +287,9 @@ def main():
             while count < len(numbers):
                 count + 1
                 total = total + numbers[count]
-            return total / count"""}]
+            return total / count
+
+            and then run test.py for me"""}]
     '''
     for event in zap.graph.stream(zap.state):
         for value in event.values():
@@ -300,4 +299,4 @@ def main():
     print(zap.state["action_output"])
 
 
-#main()
+main()

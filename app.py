@@ -7,7 +7,7 @@ from graph import Zap
 import os
 import asyncio
 from dotenv import load_dotenv
-from textual.widgets import RichLog, Input, TextArea
+from textual.widgets import RichLog, TextArea
 from textual.containers import Vertical
 
 load_dotenv()
@@ -63,7 +63,7 @@ class Shelly(App):
             temperature=0,
             stop_sequences=None
         )
-        self.zapper = Zap()
+        self.zapper = Zap(output_log=None)
         self.command_parser = CommandParser(self.zapper.tools)
 
     @property
@@ -97,15 +97,6 @@ class Shelly(App):
         # Add any cleanup code here
         if self.child_terminal:
             self.child_terminal.kill_tmux_session()
-
-            """Debug method to check if everything is properly initialized"""
-            output_log = self.query_one("#output", RichLog)
-
-            output_log.write("\n[yellow]Checking setup...[/yellow]")
-            output_log.write(f"\nZapper initialized: {hasattr(self, 'zapper')}")
-            output_log.write(f"\nState initialized: {hasattr(self, 'state')}")
-            output_log.write(f"\nAvailable tools: {len(self.zapper.tools) if hasattr(self.zapper, 'tools') else 'No tools'}")
-            output_log.write(f"\nGraph nodes: {len(self.zapper.graph.nodes) if hasattr(self.zapper, 'graph') else 'No graph'}")
     '''
     async def on_input_submitted(self, message: Input.Submitted) -> None:
         """Handle input submission"""
@@ -142,7 +133,7 @@ class Shelly(App):
                     output_log.write(f"\nAssistant: {value}")
             """
             self.zapper.graph.invoke(self.zapper.state)
-            output_log.write(f"\nAssistant: {self.zapper.state["action_output"]}")
+            #output_log.write(f"\nAssistant: {self.zapper.state["action_output"]}")
 
         except Exception as e:
             import traceback
@@ -161,6 +152,8 @@ class Shelly(App):
         # Set focus to the input widget
         input_widget = self.query_one("#user_input", CustomTextArea)
         input_widget.focus()
+        self.zapper.output_log = self.query_one("#output", RichLog)
+        await asyncio.sleep(1)
 
 class CustomTextArea(TextArea):
     """A TextArea with custom key bindings."""
