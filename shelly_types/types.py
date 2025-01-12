@@ -12,7 +12,7 @@ class GraphState(TypedDict):
     messages: List[Dict[str, str]]  # List of all messages in conversation
     tools: Dict[str, Callable] # Dictionary of all the tools that the graph can use
     current_input: str # The current user input
-    action_input: dict # The input for the current action to be executed
+    action_input: dict | ParsedCommand # The input for the current action to be executed
     action_output: str # The output from the last executed action
     current_action_list: List[ParsedCommand]
     tool_history: List[Dict[str, Any]]

@@ -15,19 +15,18 @@ import threading
 import logging
 from shelly_types.types import GraphState
 from textual.widgets import RichLog
-from typing import Optional
+
+
 
 
 load_dotenv()
 
 logging.basicConfig(level=logging.ERROR)
 
-
-
 class Zap:
     state: GraphState
     output_log: RichLog
-    def __init__(self, output_log: Optional[RichLog]):
+    def __init__(self):
         self.graph = self.setup_graph()
         api_key = os.getenv('GROQ_API_KEY')
         if not api_key:
@@ -96,12 +95,10 @@ class Zap:
 
         workflow.add_node("parse_message", self.parse_message)
         workflow.add_node("execute_action", self.execute_action)
-        workflow.add_node("update_state", self.update_state)
 
         workflow.add_edge(START, "parse_message")
         workflow.add_edge("parse_message", "execute_action")
-        workflow.add_edge("execute_action", "update_state")
-        workflow.add_edge("update_state", END)
+        workflow.add_edge("execute_action", END)
 
         return workflow.compile()
 
@@ -110,62 +107,42 @@ class Zap:
         # Handle multiline input properly
         user_input = state["messages"][-1]["content"]
         parsed_command = self.command_parser.parse_command(user_input)
-
-
-        '''return {
-            "messages": state["messages"] + [
-                {"role": "assistant", "content": parsed_command}
-            ]
-        }'''
-        print(f"parsed command: {parsed_command}")
+        print(parsed_command)
         return {
-            "current_action_list": parsed_command
+            "current_action_list": parsed_command  # constantly replace current_action_list, resetting after the actions are performed
         }
 
     def execute_action(self, state: GraphState):
-
-        last_response = state["messages"][-1]
-
+        #last_response = state["messages"][-1]
         try:
-            last_response_content = last_response["content"]
-            if not last_response_content or len(last_response_content) == 0:
-                print("Content is empty")
-                return
-            #last_response_content = json.loads(last_response_content)
-            # content is a list of tools for the graph to execute
-            '''
-            for step in last_response_content:
-                print(step)
-                #step = json.loads(str(step).replace("'",'"'))
-
-                if step["tool_name"] == "conversational_response":
-                    state = self.conversational_response(state)
-                if step["tool_name"] == "run_code":
-                    state = self.run_code(state)
-                if step["tool_name"] == "fix_code":
-                    state = self.fix_code(state)
-                '''
             for action_to_take in state["current_action_list"]:
-                state["action_input"] = dict(action_to_take)
+                # Store the action in state before executing
+                state["action_input"] = action_to_take
+                self.output_log.write("*"*200)
+                self.output_log.write("shelly>")
+
+                # Execute tool and capture returned state"
                 if action_to_take["tool_name"] == "conversational_response":
                     state = self.conversational_response(state)
-                if action_to_take["tool_name"] == "run_code":
+                elif action_to_take["tool_name"] == "run_code":
                     state = self.run_code(state)
-                if action_to_take["tool_name"] == "fix_code":
+                elif action_to_take["tool_name"] == "fix_code":
                     state = self.fix_code(state)
-                #self.output_log.write(f"\n: Assistant: {state["action_output"]}")
-                print(f"\nAssistant: {state["action_output"]}")
+
+                # Verify state update
+                if "action_output" in state:
+                    self.output_log.write(f'\n{state["action_output"]}')
+                else:
+                    self.output_log.write('\nWarning: There was no output.')
+                self.output_log.write("*"*200)
             return state
 
-        except json.JSONDecodeError as e:
-            print(f"JSON Decode Error: {e}")
-            print(f"Failed to parse content: {last_response_content}")
         except Exception as e:
-            print(f"Other error: {type(e)}: {e}")
+            import traceback
+            self.output_log.write(f'\nError in execute_action: {str(e)}')
+            self.output_log.write(f'\n{traceback.format_exc()}')
+            return state
 
-    def update_state(self, state: GraphState):
-        self.state = state
-        return state
 
     #======= TOOLS DEFINED HERE ================================================================#
     def debug_code(self, state: GraphState):
@@ -174,23 +151,31 @@ class Zap:
     def conversational_response(self, state: GraphState):
         print(f'conversational_response: {state["messages"]}')
         #last_response = state["messages"][-1]
-
+        try:
         #last_response_content = json.loads(last_response["content"].replace("'", '"'))
-        last_response_content = state["action_input"]
-        customized_prompt = ChatPromptTemplate([
-            ("system", """You are a professional and specialized expert in computer programming. Your job is to respond to the user
-                in a explanatory and concise manner."""),
-            ("user", "{session_context}"),
-            ("user", "{user_input}")
-        ])
-        context = state["messages"] # might have to implement context selection or context summarization
-        formatted_customized_prompt = customized_prompt.format_messages(
-            session_context=context, # the context from the session
-            user_input = last_response_content["tool_args"]["input"]
-        )
-        response = self.versatile_llm.invoke(formatted_customized_prompt)
-        state = self.action_output_helper(state, response)
-        return state
+            action_input = state["action_input"]
+            customized_prompt = ChatPromptTemplate([
+                ("system", """You are a professional and specialized expert in computer programming. Your job is to respond to the user
+                    in a explanatory and concise manner."""),
+                ("user", "{session_context}"),
+                ("user", "{user_input}")
+            ])
+            context = state["messages"] # might have to implement context selection or context summarization
+            user_input = ""
+            if isinstance(action_input, dict) and "user_input" in action_input["tool_args"]:
+                user_input = action_input["tool_args"]["user_input"]
+            elif isinstance(action_input, dict) and "input" in action_input["tool_args"]:
+                user_input = action_input["tool_args"]["input"]
+            formatted_customized_prompt = customized_prompt.format_messages(
+                session_context=context, # the context from the session
+                user_input = user_input
+            )
+            response = self.versatile_llm.invoke(formatted_customized_prompt)
+            state = self.action_output_helper(state, response)
+            return state
+        except Exception as e:
+            self.output_log.write("There was an issue processing your request. Please try again.")
+            return state
 
 
     # it returns a file path ie: main.py-> need to convert to python3 main.py for subprocess.run to work
@@ -241,15 +226,12 @@ class Zap:
         #last_response = state["messages"][-1]
         #last_response_content = json.loads(self.clean_json_string(last_response["content"]))
         last_response_content = state["action_input"]
-        print(f"last response contnet: {last_response_content}")
-        print(f"type of last response: {type(last_response_content)}")
         user_input, context = last_response_content["tool_args"]["code"], last_response_content["tool_args"]["context"] if "context" in last_response_content["tool_args"] else ""
         parameterized_bug_fixer_prompt = self.bug_fixer_prompt.format_messages(
             context = context,
             code = user_input
         )
         response = self.versatile_llm.invoke(parameterized_bug_fixer_prompt)
-
         state = self.action_output_helper(state, response)
         return state
 
@@ -262,21 +244,38 @@ class Zap:
     #======= TOOLS DEFINED HERE ==============================================================#
 
     def action_output_helper(self, state: GraphState, llm_response):
-        if isinstance(llm_response, list):
-            response_content = llm_response[0].content if llm_response else ""
-        elif hasattr(llm_response, 'content'):
-            response_content = llm_response.content
-        else:
-            response_content = str(llm_response)
+        try:
+            # Convert llm_response to string content
+            if isinstance(llm_response, list):
+                response_content = llm_response[0].content if llm_response else ""
+            elif hasattr(llm_response, 'content'):
+                response_content = llm_response.content
+            else:
+                response_content = str(llm_response)
 
-        # Update state with the response
-        print(f"response contnet: {response_content}")
-        state["action_output"] = response_content
-        state["messages"] = state["messages"] + [{"role": "assistant", "content": response_content}]
-        return state
+            # Debug logging
+            print(f"Debug: Processing response content: {response_content[:100]}...")
+            # Update state
+            state["action_output"] = response_content
+            state["messages"] = state["messages"] + [{"role": "assistant", "content": response_content}]
+
+            return state
+
+        except Exception as e:
+            import traceback
+            error_msg = f"\nError in action_output_helper: {str(e)}\n{traceback.format_exc()}"
+            if self.output_log:
+                self.output_log.write(error_msg)
+            else:
+                print(error_msg)
+            return state
+
+
 
 def main():
-    zap = Zap(output_log=None)
+    output_log = RichLog()
+    zap = Zap()
+    zap.output_log = output_log
     #zap.state["messages"] = [{"role": "user", "content": "what is a binary tree"}]
     #zap.state["messages"] = [{"role": "user", "content": "execute ./test/test.js"}]
 
@@ -290,13 +289,11 @@ def main():
             return total / count
 
             and then run test.py for me"""}]
-    '''
-    for event in zap.graph.stream(zap.state):
-        for value in event.values():
-            print(value)
-    '''
+    #for event in zap.graph.stream(zap.state):
+     #   for value in event.values():
+      #      print(value)
     zap.graph.invoke(zap.state)
-    print(zap.state["action_output"])
+    #print(zap.state["action_output"])
 
 
-main()
+#main()
