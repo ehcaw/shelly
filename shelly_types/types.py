@@ -1,12 +1,14 @@
 from typing import TypedDict, Optional, Dict, List, Callable, Any
 from pydantic import BaseModel
 
-class ParsedCommand(TypedDict):
-    tool_name: Optional[str]
-    tool_args: Optional[Dict]
+class ParsedCommand(BaseModel):
+    tool_name: str
+    tool_args: dict
+
 
 class ParsedCommandList(BaseModel):
     tools: List[ParsedCommand]
+
 
 class GraphState(TypedDict):
     messages: List[Dict[str, str]]  # List of all messages in conversation
@@ -19,3 +21,12 @@ class GraphState(TypedDict):
     context_summary: str
     last_tool_invoked: Optional[str]
     should_end: bool # Flag to determine if application should stop
+
+class UsageInfo(BaseModel):
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+
+class LLMResponse(BaseModel):
+    content: str
+    usage: Optional[UsageInfo] = None

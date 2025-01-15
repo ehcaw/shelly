@@ -15,7 +15,7 @@ import threading
 import logging
 from shelly_types.types import GraphState
 from textual.widgets import RichLog
-
+from textual_components.token_usage_logger import TokenUsagePlot
 
 
 
@@ -26,6 +26,7 @@ logging.basicConfig(level=logging.ERROR)
 class Zap:
     state: GraphState
     output_log: RichLog
+    token_usage_log: TokenUsagePlot
     def __init__(self):
         self.graph = self.setup_graph()
         api_key = os.getenv('GROQ_API_KEY')
@@ -81,6 +82,8 @@ class Zap:
             last_tool_invoked=None,
             should_end=False
         )
+
+
     def clean_json_string(self, content: str) -> str:
         # Remove actual newlines and normalize escape sequences
         content = content.replace('\n', '\\n').replace('\r', '')
@@ -109,7 +112,7 @@ class Zap:
         parsed_command = self.command_parser.parse_command(user_input)
         print(parsed_command)
         return {
-            "current_action_list": parsed_command  # constantly replace current_action_list, resetting after the actions are performed
+            "current_action_list": parsed_command.tools  # constantly replace current_action_list, resetting after the actions are performed
         }
 
     def execute_action(self, state: GraphState):
@@ -120,13 +123,12 @@ class Zap:
                 state["action_input"] = action_to_take
                 self.output_log.write("*"*200)
                 self.output_log.write("shelly>")
-
                 # Execute tool and capture returned state"
-                if action_to_take["tool_name"] == "conversational_response":
+                if action_to_take.tool_name == "conversational_response":
                     state = self.conversational_response(state)
-                elif action_to_take["tool_name"] == "run_code":
+                elif action_to_take.tool_name == "run_code":
                     state = self.run_code(state)
-                elif action_to_take["tool_name"] == "fix_code":
+                elif action_to_take.tool_name== "fix_code":
                     state = self.fix_code(state)
 
                 # Verify state update
@@ -172,6 +174,8 @@ class Zap:
             )
             response = self.versatile_llm.invoke(formatted_customized_prompt)
             state = self.action_output_helper(state, response)
+            input_tokens, output_tokens = self.log_token_usage(response)
+            self.update_token_usage(input_tokens, output_tokens)
             return state
         except Exception as e:
             self.output_log.write("There was an issue processing your request. Please try again.")
@@ -184,7 +188,7 @@ class Zap:
         #last_response_content = json.loads(last_response["content"].replace("'",'"'))
         last_response_content = state["action_input"]
         try:
-            program_path = last_response_content["tool_args"]["path"]
+            program_path = last_response_content.tool_args.path
             if not program_path:
                 raise FileNotFoundError("No program path found")
            #result = subprocess.run(os.path.join(os.getcwd(), program_path), capture_output=True, check=True, text=True)
@@ -269,6 +273,24 @@ class Zap:
             else:
                 print(error_msg)
             return state
+
+    def log_token_usage(self, response):
+        input_tokens = 0
+        output_tokens = 0
+        total_tokens = 0
+
+        # Access the underlying response object for usage info
+        if hasattr(response, 'additional_kwargs') and '_response' in response.additional_kwargs:
+            raw_response = response.additional_kwargs['_response']
+            if hasattr(raw_response, 'usage'):
+                input_tokens = raw_response.usage.prompt_tokens
+                output_tokens = raw_response.usage.completion_tokens
+        return input_tokens, output_tokens
+
+    def update_token_usage(self, input_tokens: int, output_tokens: int) -> None:
+        """Safely update token usage if the logger is available"""
+        if hasattr(self, 'token_usage_log') and self.token_usage_log is not None:
+            self.token_usage_log.update_chart(input_tokens, output_tokens)
 
 
 

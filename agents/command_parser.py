@@ -1,14 +1,19 @@
-from typing import Dict, Union, List, Dict, Any
+from typing import Dict, Union, List, Dict, Any, Optional
 from pydantic import BaseModel, SecretStr
 from langchain.prompts import ChatPromptTemplate
+from langchain_core.messages.ai import AIMessage
 from langchain_groq import ChatGroq
 from langchain.tools import Tool
 import os
 from dotenv import load_dotenv
 import sys
-from shelly_types.types import ParsedCommand, ParsedCommandList
+from shelly_types.types import ParsedCommand, ParsedCommandList, UsageInfo, LLMResponse
+from functools import lru_cache
+from langchain_community.cache import InMemoryCache
+from langchain.globals import set_llm_cache
 
 load_dotenv()
+
 
 
 class CommandParser:
@@ -19,6 +24,9 @@ class CommandParser:
             f"- {tool.name}: {tool.description}"
             for tool in list(available_tools.values())
         ])
+
+        set_llm_cache(InMemoryCache())
+
 
         # Few-shot examples to help the llm classify actions to do
         self.examples = """
@@ -125,11 +133,18 @@ class CommandParser:
         ]
         """
         self.prompt = ChatPromptTemplate.from_messages([
-                    ("system", 'You are a command parser. Return ONLY a JSON array of objects. If a command requires a combination of tools, add multiple objects in the array.'),
-                    ("system", """Available tools: {tool_descriptions}"""),
-                    ("system", "{examples}"),
-                    ("user", "{user_input}")
+            ("system", """You are a command parser that converts user input into tool calls.
+                Available tools:
+                {tool_descriptions}
+
+                Use these examples as reference for similar cases:
+                {cached_examples}
+
+                Return ONLY a JSON array of tool objects."""),
+            ("user", "{user_input}")
         ])
+
+        self.cached_examples = self.examples
 
         api_key = os.getenv('GROQ_API_KEY')
         if not api_key:
@@ -141,33 +156,51 @@ class CommandParser:
                 temperature=0,
                 stop_sequences=None).with_structured_output(ParsedCommandList)
 
-    def parse_command(self, user_input: str) -> List[ParsedCommand]:
-        """Parse user input to determine if it should use a tool or conversational response"""
+    @lru_cache(maxsize=1)  # Cache the formatted examples
+    def get_cached_examples(self):
+        return self.cached_examples
+
+
+
+    def parse_command(self, user_input: str) -> ParsedCommandList:
         try:
             formatted_prompt = self.prompt.format_messages(
                 tool_descriptions=self.tool_descriptions,
-                examples=self.examples,
+                examples=self.get_cached_examples(),
                 user_input=user_input
             )
 
-            # Get LLM response with proper type annotation
-            response: Union[Dict[str, Any], BaseModel] = self.llm.invoke(formatted_prompt)
+            # Get LLM response
+            response = self.llm.invoke(formatted_prompt)
+
+            # Extract usage information from the response
+            input_tokens = 0
+            output_tokens = 0
+            total_tokens = 0
+
+            # Access the underlying response object for usage info
 
             # Handle the response based on its type
             if isinstance(response, dict):
-                return response.get('tools', [])
+                tools = response.get('tools', [])
             elif hasattr(response, 'tools'):
-                return response.tools
+                tools = response.tools
             else:
-                raise ValueError(f"Unexpected response type: {type(response)}")
+                tools = []
+
+            return ParsedCommandList(
+                tools=tools,
+            )
 
         except Exception as e:
             print(f"Error in parse_command: {str(e)}")
             # Default to conversation on error
-            return [{
-                "tool_name": "conversational_response",
-                "tool_args": {"input": user_input, "state": {}}
-            }]
+            return ParsedCommandList(
+                tools=[ParsedCommand(
+                    tool_name = "conversational_response",
+                    tool_args={"input": user_input}
+                )],
+            )
 
 
 def debug_code():

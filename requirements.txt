@@ -15,4 +15,7 @@ langchain_ollama
 langchain_anthropic
 langchain_groq
 langchain
+langchain_community
+langchain-huggingface
 python-dotenv>=0.19.0
+textual-plotext
