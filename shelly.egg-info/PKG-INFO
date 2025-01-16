@@ -1,5 +1,4 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.1
 Name: shelly
 Version: 0.1
 Requires-Dist: Click
-Dynamic: requires-dist

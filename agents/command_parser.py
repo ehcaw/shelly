@@ -166,7 +166,7 @@ class CommandParser:
         try:
             formatted_prompt = self.prompt.format_messages(
                 tool_descriptions=self.tool_descriptions,
-                examples=self.get_cached_examples(),
+                cached_examples=self.get_cached_examples(),
                 user_input=user_input
             )
 

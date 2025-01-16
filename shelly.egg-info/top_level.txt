@@ -1,5 +1,5 @@
 agents
 cli
 shelly
-types
+shelly_types
 utils

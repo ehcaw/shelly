@@ -1,35 +1,62 @@
-import os
-from utils.utils import find_files_in_directory, get_nth_related_files, build_adjacency_list, error_repomix
-from repomixer.stack_trace_parser import StackTraceParser
-from repomixer.context_collector import ContextCollector
-'''
-cwd = os.getcwd()
+from pathlib import Path
+import pytest
+from agents.react_graph import Splatter
 
-#print(find_files_in_directory(cwd, ["yarn.lock"]))
-#adj_list = build_adjacency_list(["/Users/ryannguyen/projects/typescript/tutorportal/src/components/dashboard/dashboard/AttendancePanel.tsx"], "/projects/typescript/tutorportal")
-#print(get_nth_related_files(["/Users/ryannguyen/projects/typescript/tutorportal/src/components/dashboard/dashboard/AttendancePanel.tsx"], adj_list))
-#print(repomix("test.py", ""))
+def test_basic_operations():
+    splatter = Splatter()
 
-parser = StackTraceParser("/projects/python/splat")
-error_trace = """Traceback (most recent call last):
-  File "/Users/ryannguyen/projects/python/splat/foo.py", line 6, in <module>
-    from top.a import func_a
-  File "/Users/ryannguyen/projects/python/splat/top/a.py", line 2, in <module>
-    from a.y import func_y
-  File "/Users/ryannguyen/projects/python/splat/a/y.py", line 2
-    print("Noooope.)
-          ^
-SyntaxError: unterminated string literal (detected at line 2)"""
+    # Test cases with initial states
+    test_cases = [
+        # Test file loading
+        {
+            "messages": [{
+                "role": "user",
+                "content": "Load and analyze the contents of test_file.py"
+            }],
+            "current_action_list": [],
+            "should_end": False,
+            "action_input": {
+                "file_path": Path("test_file.py")
+            }
+        },
 
-primary_files = parser.extract_files(error_trace)
-print(f'primary files: {primary_files}')
+        # Test code analysis
+        {
+            "messages": [{
+                "role": "user",
+                "content": "Analyze this code: def hello(): print('world')"
+            }],
+            "current_action_list": [],
+            "should_end": False,
+            "action_input": {
+                "code": "def hello(): print('world')",
+                "analysis_type": "general"
+            }
+        },
 
-all_files = parser.get_related_files(primary_files)
-print(f'all files: {all_files}')
+        # Test code explanation
+        {
+            "messages": [{
+                "role": "user",
+                "content": "Explain this code in detail: for i in range(10): print(i)"
+            }],
+            "current_action_list": [],
+            "should_end": False,
+            "action_input": {
+                "code": "for i in range(10): print(i)",
+                "detail_level": "high"
+            }
+        }
+    ]
 
-#rror_repomix("/projects/python/zap/foo.py", "", "")
-context_collector = ContextCollector("/Users/ryannguyen/projects/python/calhacks24")
-related_files = context_collector.collect_context("", "foo.py")
-print(related_files)
-'''
-print(str({"hello": "bye"}))
+    # Run each test case
+    for test_case in test_cases:
+        result = splatter.graph.invoke(test_case)
+        print("\nTest Case Result:")
+        print("Messages:", result["messages"])
+        print("Action Output:", result.get("action_output"))
+        print("Observation:", result.get("observation"))
+        print("-" * 50)
+
+if __name__ == "__main__":
+    test_basic_operations()
