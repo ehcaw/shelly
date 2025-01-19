@@ -7,9 +7,13 @@ from langchain_groq import ChatGroq
 from langchain.agents import AgentExecutor, create_react_agent
 from langgraph.graph import StateGraph, START, END
 from langchain.agents import Tool
-from shelly_types.types import ReactGraphState, FileInput, DirectoryInput, CodeInput, CodeRunInput, ConversationInput, CodeAnalysisInput, CodeFixInput, CodeWriteInput, CodeDebugInput, DocumentationSearchInput, ContextManagementInput, CodeExplanationInput, WriteMode
+from langchain_community.tools.tavily_search import TavilySearchResults
+from shelly_types.types import (ReactGraphState, FileInput, DirectoryInput, CodeInput, CodeRunInput, ConversationInput, CodeAnalysisInput,
+    CodeFixInput, CodeWriteInput, CodeDebugInput, DocumentationSearchInput, ContextManagementInput, CodeExplanationInput, WriteMode, ParsedCommand, ParsedCommandList, CustomRichLog)
 from shelly_types.utils import llm_response_helper
+from textual_components.token_usage_logger import TokenUsagePlot
 from agents.command_parser import CommandParser
+from textual.widgets import RichLog
 from langchain.prompts import ChatPromptTemplate
 from pydantic import SecretStr, BaseModel, Field
 from dotenv import load_dotenv
@@ -18,7 +22,6 @@ import threading
 import shlex
 import pathlib
 from pathlib import Path
-
 load_dotenv()
 
 project_root = str(Path(__file__).parent.parent.parent)
@@ -26,9 +29,11 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 class Splatter:
+    output_log: CustomRichLog
+    state: ReactGraphState
+    token_usage_log: TokenUsagePlot
     def __init__(self):
         self.graph = self.setup_graph()
-
         api_key = os.getenv('GROQ_API_KEY')
         if not api_key:
             raise ValueError("GROQ_API_KEY environment variable is not set")
@@ -90,13 +95,14 @@ class Splatter:
                 description="Run code in debug mode and analyze output",
                 args_schema=CodeDebugInput
             ),
-
+            '''
             "search_documentation": Tool(
                 name="search_documentation",
                 func=self.search_documentation,
                 description="Search relevant documentation or examples",
                 args_schema=DocumentationSearchInput
             ),
+            '''
             "manage_context": Tool(
                 name="manage_context",
                 func=self.manage_context,
@@ -112,12 +118,25 @@ class Splatter:
             ),
             "conversation_response": Tool(
                 name="conversation_response",
-                func=self.conversational_response,
+                func=self.conversation_response,
                 description="Respond to user questions or provide guidance",
                 args_schema=ConversationInput
             )
         }
         self.command_parser = CommandParser(available_tools=self.tools)
+        self.state = ReactGraphState(
+            messages=[],
+            tools=self.tools,
+            current_input="",
+            action_input={},
+            action_output="",
+            current_action_list=[],
+            tool_history=[],
+            should_end=False,
+            last_action=None,
+            observation=None,
+            action_error=None
+        )
 
     def setup_graph(self):
         workflow = StateGraph(ReactGraphState)
@@ -131,12 +150,15 @@ class Splatter:
         workflow.add_edge(START, "reason")
         workflow.add_edge("reason", "action")
         workflow.add_edge("action", "observe")
-        workflow.add_edge("observe", "reason")  # Continue the cycle
-        workflow.add_edge("observe", END)       # Or end if task is complete
+        #workflow.add_edge("observe", "reason")  # Continue the cycle
+        #orkflow.add_edge("observe", END)       # Or end if task is complete
 
         # Add conditional logic
         def should_continue(state: ReactGraphState) -> bool:
-            return not state["should_end"] and len(state["current_action_list"]) > 0
+            should_continue = not state["should_end"] and len(state["current_action_list"]) > 0
+            if self.output_log:
+                self.output_log.write(f"Debug: should_continue = {should_continue}, should_end = {state['should_end']}, current_action_list = {len(state['current_action_list'])}\n")
+            return should_continue
 
         # Define when to continue the cycle vs when to end
         workflow.add_conditional_edges(
@@ -152,47 +174,100 @@ class Splatter:
 
     def reason(self, state: ReactGraphState) -> ReactGraphState:
         """Think about what action to take next"""
-        messages = state["messages"]
-        current_situation = messages[-1]["content"]
+        if self.output_log:
+            self.output_log.write(f"\nREASON STEP - current_input: {state['current_input']}")
+            self.output_log.write(f"\nREASON STEP - messages: {state['messages']}")
 
-        # Create a reasoning prompt
-        prompt = ChatPromptTemplate([
-            ("system", """You are an AI assistant that thinks carefully about what to do next.
-                         Based on the current situation and available tools, decide the next action."""),
-            ("user", "Current situation: {situation}\nAvailable tools: {tools}\nWhat should be done next?")
-        ])
 
-        response = self.versatile_llm.invoke(prompt.format(
-            situation=current_situation,
-            tools=list(self.tools.keys())
-        ))
+        current_situation = state["current_input"]
+
+        if current_situation is None or len(current_situation) == 0:
+            if self.output_log:
+                self.output_log.write("\nNo input to process, returning")
+            return state
+        # For simple questions, directly set up conversation response
+        if not any(keyword in current_situation.lower() for keyword in ['code', 'file', 'directory', 'run', 'debug', 'fix']):
+            command = ParsedCommand(
+                tool_name="conversation_response",
+                tool_args={"user_input": current_situation}
+            )
+            state["current_action_list"] = [command]
+            state["action_input"] = {"user_input": current_situation}
+            return state
+
+        response = self.command_parser.parse_command(current_situation)
 
         # Parse the response to determine next action
         parsed_response = llm_response_helper(response)
-        parsed_action = self.command_parser.parse_command(parsed_response)
-        state["current_action_list"] = parsed_action.tools
+        self.output_log.write(f'parsed response: {parsed_response} and {response}')
+        state["current_action_list"] = response.tools
+        state["current_input"] = ""
+
+        # Logging
+        if self.output_log:
+            self.output_log.write(f"Debug: Reasoning response = {parsed_response}, current_action_list = {state['current_action_list']}\n")
+
         return state
 
     def action(self, state: ReactGraphState) -> ReactGraphState:
         """Execute the chosen action"""
         try:
-            current_action = state["current_action_list"][0]
-            state["current_action_list"] = state["current_action_list"][1:]  # Remove the executed action
+            if len(state["current_action_list"]) == 0:
+                if self.output_log:
+                    self.output_log.write("No actions to execute")
+                state["should_end"] = True
+                return state
+
+            current_action = state["current_action_list"].pop(0)
+            if self.output_log:
+                self.output_log.write(f"Executing action: {current_action.tool_name}")
+                self.output_log.write(f"With args: {current_action.tool_args}")
 
             if current_action.tool_name in self.tools:
+                state["action_input"] = current_action.tool_args
                 tool_func = getattr(self, current_action.tool_name)
                 state = tool_func(state)
+                state["last_action"] = current_action  # Make sure this is set
 
-            state["last_action"] = current_action
+                if self.output_log:
+                    self.output_log.write(f"Action result: {state['action_output']}")
+
             return state
         except Exception as e:
+            if self.output_log:
+                self.output_log.write(f"Action failed: {str(e)}")
             state["action_error"] = str(e)
             return state
 
     def observe(self, state: ReactGraphState) -> ReactGraphState:
         """Observe and analyze the results of the action"""
-        last_action = state["last_action"]
+        last_action: ParsedCommand = state["last_action"]
         action_output = state["action_output"]
+
+        if len(state["current_action_list"]) > 0:
+            state["should_end"] = False
+            return state
+
+        # If we just completed a conversation response, we can end
+        if last_action and last_action.tool_name == "conversation_response":
+            if action_output:  # Only end if we actually got a response
+                state["should_end"] = True
+                return state
+
+        self.output_log.write(f'Observing after action: {last_action}')
+        self.output_log.write(f'Action output: {action_output}')
+        self.output_log.write(f'Remaining actions: {len(state["current_action_list"])}')
+
+        # If we have more actions to execute, continue
+        if len(state["current_action_list"]) > 0:
+            state["should_end"] = False
+            return state
+
+        # If we just executed a command and got output, continue to process remaining actions
+        if last_action and action_output:
+            if not state["current_action_list"]:  # No more actions
+                state["should_end"] = True
+            return state
 
         # Create an observation prompt
         prompt = ChatPromptTemplate([
@@ -211,12 +286,23 @@ class Splatter:
         # Update state based on observation
         response_content = llm_response_helper(response)
         state["observation"] = response_content
-        state["should_end"] = "task complete" in response_content
+
+        # More robust check for task completion
+        if "task complete" in response_content.lower() or "no further action" in response_content.lower():
+            state["should_end"] = True
+        else:
+            state["should_end"] = False
+
+        # Logging
+        if self.output_log:
+            self.output_log.write(f"Observation response: {response_content}\n")
+            self.output_log.write(f"should_end set to: {state['should_end']}\n")
+
         return state
 
     def action_output_helper(self, state: ReactGraphState, llm_response):
         try:
-            # Convert llm_response to string content
+            # Convert response to string content
             if isinstance(llm_response, list):
                 response_content = llm_response[0].content if llm_response else ""
             elif hasattr(llm_response, 'content'):
@@ -224,21 +310,22 @@ class Splatter:
             else:
                 response_content = str(llm_response)
 
-            # Debug logging
-            print(f"Debug: Processing response content: {response_content[:100]}...")
             # Update state
             state["action_output"] = response_content
-            state["messages"] = state["messages"] + [{"role": "assistant", "content": response_content}]
+            state["messages"].append({"role": "assistant", "content": response_content})
+
+            # Only log if we have an output log
+            if self.output_log:
+                self.output_log.write(f'\nAction Output: {response_content}\n')
+                self.output_log.write(f'\nMessages: {state["messages"]}')
 
             return state
 
         except Exception as e:
-            import traceback
-            error_msg = f"\nError in action_output_helper: {str(e)}\n{traceback.format_exc()}"
+            error_msg = f"Error in output helper: {str(e)}"
             if self.output_log:
-                self.output_log.write(error_msg)
-            else:
-                print(error_msg)
+                self.output_log.write(f"\nERROR: {error_msg}\n")
+            state["action_output"] = error_msg
             return state
 
     def handle_tool_error(self, state: ReactGraphState, error: Exception) -> ReactGraphState:
@@ -246,6 +333,11 @@ class Splatter:
         state["action_output"] = error_message
         state["action_error"] = error_message
         return state
+
+    def debug_log(self, message: str):
+        """Helper to handle debug logging consistently"""
+        if self.output_log:
+            self.output_log.write(f"\nDEBUG: {message}\n")
 
 
     #TOOLS DEFINED HERE
@@ -289,25 +381,22 @@ class Splatter:
         except Exception as e:
             return self.handle_tool_error(state, e)
 
-    def conversational_response(self, state: ReactGraphState):
-        #last_response = state["messages"][-1]
-        action_input = ConversationInput.model_validate(state["action_input"])
+    def conversation_response(self, state: ReactGraphState):
         try:
-
+            action_input = ConversationInput.model_validate(state["action_input"])
             customized_prompt = ChatPromptTemplate([
-                ("system", """You are a professional and specialized expert in computer programming. Your job is to respond to the user
-                    in a explanatory and concise manner."""),
-                ("user", "{session_context}"),
+                ("system", """You are an expert in computer programming and software development.
+                    Provide clear, accurate, and helpful responses to questions.
+                    If asked about programming concepts, include examples when relevant."""),
                 ("user", "{user_input}")
             ])
-            context = str(state["messages"]) # might have to implement context selection or context summarization
-            user_input = action_input.user_input
-            formatted_customized_prompt = customized_prompt.format_messages(
-                session_context=context, # the context from the session
-                user_input = user_input
-            )
-            response = self.versatile_llm.invoke(formatted_customized_prompt)
+
+            response = self.versatile_llm.invoke(customized_prompt.format(
+                user_input=action_input.user_input
+            ))
+
             state = self.action_output_helper(state, response)
+            state["should_end"] = True  # Mark task as complete
             return state
         except Exception as e:
             return self.handle_tool_error(state, e)
@@ -316,17 +405,34 @@ class Splatter:
         try:
             input_args = FileInput.model_validate(state["action_input"])
             file_path = input_args.file_path
-            if file_path is None:
-                raise Exception("File path not provided in tool args")
-            file_contents = file_path.read_text()
-            state["messages"] = state["messages"] + [{"role": "user", "content": file_contents}]
-            state["action_output"] = f'{file_path} loaded'
-            return state
-        except FileNotFoundError as error:
-            state["action_output"] = "File wasn't found"
-            return state
+
+            # Convert string to Path if needed
+            if isinstance(file_path, str):
+                file_path = Path(file_path)
+
+            # Try different possible locations
+            possible_paths = [
+                file_path,  # Try direct path first
+                Path.cwd() / file_path,  # Try current working directory
+                Path(__file__).parent / file_path,  # Try script's directory
+                Path(__file__).parent.parent / file_path  # Try parent directory
+            ]
+
+            # Try each possible path
+            for path in possible_paths:
+                if path.exists():
+                    file_contents = path.read_text()
+                    state["messages"].append({"role": "user", "content": file_contents})
+                    return self.action_output_helper(state,
+                        f"Successfully loaded file {path}\nContents:\n{file_contents}")
+
+            # If we get here, file wasn't found
+            return self.action_output_helper(state,
+                f"Error: File {file_path} not found. Searched in:\n" +
+                "\n".join(str(p) for p in possible_paths))
+
         except Exception as e:
-            return self.handle_tool_error(state, e)
+            return self.action_output_helper(state, f"Error loading file: {str(e)}")
 
     def load_directory(self, state: ReactGraphState) -> ReactGraphState:
         try:
@@ -336,7 +442,7 @@ class Splatter:
                 raise Exception("Directory provided isn't valid")
             for file in dir_path.iterdir():
                 state["messages"] = state["messages"] + [{"role": "user", "content": file.read_text()}]
-            state["action_output"] = f'Successfully loaded files in {dir_path}'
+            state = self.action_output_helper(state, f'Successfully loaded files in {dir_path}')
             return state
         except Exception as e:
             return self.handle_tool_error(state, e)
@@ -404,7 +510,7 @@ class Splatter:
                             lines[mod.line_number] = mod.content
 
                 input_args.file_path.write_text('\n'.join(lines) + '\n')
-            state["action_output"] = f'Code changed in {file_path} using {mode}'
+            state = self.action_output_helper(state, f'Code changed in {file_path} using {mode}')
             return state
         except Exception as e:
             return self.handle_tool_error(state, e)
@@ -412,7 +518,17 @@ class Splatter:
     def explain_code(self, state: ReactGraphState) -> ReactGraphState:
         try:
             input_args = CodeExplanationInput.model_validate(state["action_input"])
-            code_content, detail_level = input_args.code, input_args.detail_level
+
+            # If code is empty, get it from the last loaded file
+            if not input_args.code:
+                # Get the last message which should be the file content
+                if state["messages"] and state["messages"][-1]["content"]:
+                    code_content = state["messages"][-1]["content"]
+                else:
+                    raise ValueError("No code content available")
+            else:
+                code_content = input_args.code
+            detail_level = input_args.detail_level
             explanation_prompt = ChatPromptTemplate([
                 ("system", """You are a professional and specialized expert in computer programming. Your job is to explain this code
                     segment with {detail_level} detail"""),
@@ -427,9 +543,18 @@ class Splatter:
         except Exception as e:
             return self.handle_tool_error(state, e)
 
+    def search_documentation(self, state: ReactGraphState) -> ReactGraphState:
+        try:
+            input_args = DocumentationSearchInput.model_validate(state["action_input"])
+            query, sources = input_args.query, input_args.sources
+            response = TavilySearchResults(max_results=2).invoke(query)
+            state = self.action_output_helper(state, response)
+            return state
+        except Exception as e:
+            return self.handle_tool_error(state, e)
+
 def test_basic_operations():
     splatter = Splatter()
-
     # Test cases with initial states
     test_cases = [
         # Test file loading

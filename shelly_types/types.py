@@ -3,6 +3,8 @@ from pydantic import BaseModel, Field
 from langchain_core.tools import Tool
 from pathlib import Path
 from enum import Enum
+from textual import events
+from textual.widgets import RichLog
 
 class ParsedCommand(BaseModel):
     tool_name: str
@@ -31,11 +33,11 @@ class ReactGraphState(TypedDict):
     current_input: str # the command parser should use this. do not use messages to analyze
     action_input: Dict #input for the tool
     action_output: str # output for the tool
-    current_action_list: List
+    current_action_list: List[ParsedCommand]
     tool_history: List
     #context_summary: str
     should_end: bool
-    last_action: Optional[Dict]  # New field
+    last_action: Optional[ParsedCommand]  # New field
     observation: Optional[str]   # New field
     action_error: Optional[str]  # New field
 
@@ -112,3 +114,14 @@ class UsageInfo(BaseModel):
 class LLMResponse(BaseModel):
     content: str
     usage: Optional[UsageInfo] = None
+
+class CustomRichLog(RichLog):
+    def action_copy(self) -> None:
+            """Copy the content to clipboard."""
+            import pyperclip
+            pyperclip.copy(self.lines)  # Copy plain text content
+
+    def on_key(self, event: events.Key) -> None:
+        """Handle key events."""
+        if event.key == "ctrl+c":
+            self.action_copy()

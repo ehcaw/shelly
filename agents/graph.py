@@ -9,7 +9,7 @@ import re
 from langchain.agents import Tool
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
-from command_parser import CommandParser
+from .command_parser import CommandParser
 from langchain.prompts import ChatPromptTemplate
 import threading
 import logging
@@ -318,4 +318,4 @@ def main():
     #print(zap.state["action_output"])
 
 
-main()
+#main()

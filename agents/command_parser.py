@@ -131,6 +131,44 @@ class CommandParser:
                 "tool_args": {"spec": "Write a function to create a binary tree"}
             }
         ]
+
+        User: "/file test.py
+        explain this code and fix any bugs"
+        Assistant: [
+            {
+                "tool_name": "load_file",
+                "tool_args": {"file_path": "test.py"}
+            },
+            {
+                "tool_name": "explain_code",
+                "tool_args": {
+                    "code_source": "test.py",
+                    "detail_level": "high"
+                }
+            },
+            {
+                "tool_name": "fix_code",
+                "tool_args": {
+                    "code_source": "test.py"
+                }
+            }
+        ]
+
+        User: "/file test.py
+        what does this code do?"
+        Assistant: [
+            {
+                "tool_name": "load_file",
+                "tool_args": {"file_path": "test.py"}
+            },
+            {
+                "tool_name": "explain_code",
+                "tool_args": {
+                    "code": "",  # Will be filled from loaded file
+                    "detail_level": "high"
+                }
+            }
+        ]
         """
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a command parser that converts user input into tool calls.
@@ -163,44 +201,75 @@ class CommandParser:
 
 
     def parse_command(self, user_input: str) -> ParsedCommandList:
-        try:
-            formatted_prompt = self.prompt.format_messages(
-                tool_descriptions=self.tool_descriptions,
-                cached_examples=self.get_cached_examples(),
-                user_input=user_input
-            )
+        lines = user_input.strip().split('\n')
+        all_tools = []
+        context = {}  # Store context between lines
 
-            # Get LLM response
-            response = self.llm.invoke(formatted_prompt)
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
 
-            # Extract usage information from the response
-            input_tokens = 0
-            output_tokens = 0
-            total_tokens = 0
-
-            # Access the underlying response object for usage info
-
-            # Handle the response based on its type
-            if isinstance(response, dict):
-                tools = response.get('tools', [])
-            elif hasattr(response, 'tools'):
-                tools = response.tools
+            # Handle slash commands
+            if line.startswith('/file '):
+                file_path = line.split('/file ', 1)[1].strip()
+                context['current_file'] = file_path
+                all_tools.append(ParsedCommand(
+                    tool_name="load_file",
+                    tool_args={"file_path": file_path}
+                ))
+            elif line.startswith('/dir '):
+                dir_path = line.split('/dir ', 1)[1].strip()
+                context['current_dir'] = dir_path
+                all_tools.append(ParsedCommand(
+                    tool_name="load_directory",
+                    tool_args={"directory_path": dir_path}
+                ))
             else:
-                tools = []
+                # Process non-command lines through LLM with context
+                try:
+                    # Include context in the prompt
+                    enhanced_prompt = f"""Context:
+                    Current file: {context.get('current_file', 'None')}
+                    Current directory: {context.get('current_dir', 'None')}
 
-            return ParsedCommandList(
-                tools=tools,
-            )
+                    User request: {line}"""
 
-        except Exception as e:
-            print(f"Error in parse_command: {str(e)}")
-            # Default to conversation on error
-            return ParsedCommandList(
-                tools=[ParsedCommand(
-                    tool_name = "conversational_response",
-                    tool_args={"input": user_input}
-                )],
-            )
+                    formatted_prompt = self.prompt.format_messages(
+                        tool_descriptions=self.tool_descriptions,
+                        cached_examples=self.get_cached_examples(),
+                        user_input=enhanced_prompt
+                    )
+                    response = self.llm.invoke(formatted_prompt)
+
+                    if isinstance(response, dict):
+                        tools = response.get('tools', [])
+                    elif hasattr(response, 'tools'):
+                        tools = response.tools
+                    else:
+                        tools = []
+
+                    # For code-related tools, just set minimum required args
+                    for tool in tools:
+                        if tool.tool_name in ['explain_code', 'fix_code', 'analyze_code']:
+                            tool.tool_args = {
+                                'code': '',  # Empty string - tool will get content from messages
+                                'detail_level': 'high' if tool.tool_name == 'explain_code' else None,
+                                'analysis_type': 'general' if tool.tool_name == 'analyze_code' else None
+                            }
+                            # Remove None values
+                            tool.tool_args = {k: v for k, v in tool.tool_args.items() if v is not None}
+
+                    all_tools.extend(tools)
+
+                except Exception as e:
+                    print(f"Error processing line: {line}, error: {str(e)}")
+                    all_tools.append(ParsedCommand(
+                        tool_name="conversation_response",
+                        tool_args={"user_input": line}
+                    ))
+
+        return ParsedCommandList(tools=all_tools)
 
 
 def debug_code():

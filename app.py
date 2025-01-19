@@ -4,6 +4,7 @@ from agents.command_parser import CommandParser
 from langchain_groq import ChatGroq
 from pydantic import SecretStr
 from agents.graph import Zap
+from agents.react_graph import Splatter
 import os
 import asyncio
 from dotenv import load_dotenv
@@ -24,6 +25,7 @@ import fnmatch
 import asyncio
 from functools import lru_cache
 from textual import on
+from shelly_types.types import CustomRichLog
 
 
 
@@ -58,7 +60,7 @@ class Shelly(App):
             border: double $accent;
         }
 
-        RichLog {
+        CustomRichLog {
             height: 70%;
             border: solid $accent;
             background: $surface;
@@ -83,7 +85,8 @@ class Shelly(App):
     def __init__(self):
         super().__init__()
         self.child_terminal = None
-        self.zapper = Zap()
+        #self.zapper = Zap()
+        self.zapper = Splatter()
         api_key = os.getenv('GROQ_API_KEY')
         if not api_key:
             raise ValueError("GROQ_API_KEY environment variable is not set")
@@ -124,7 +127,7 @@ class Shelly(App):
             # Left side - 75% width
             with Vertical(id="left_panel"):
                 yield CustomTextArea(app=self, id="user_input", theme="monokai")
-                yield RichLog(id="output", wrap=True)
+                yield CustomRichLog(id="output", wrap=True)
 
             # Right side - 25% width
             with Vertical(id="right_panel"):
@@ -162,7 +165,7 @@ class Shelly(App):
         if self.child_terminal:
             self.child_terminal.kill_tmux_session()
 
-    def process_input(self, user_input: str, output_log: RichLog) -> None:
+    def process_input(self, user_input: str, output_log: CustomRichLog) -> None:
         """Process input through the graph"""
 
         self.compose()
@@ -173,6 +176,7 @@ class Shelly(App):
                 "role": "user",
                 "content": user_input
             }]
+            self.zapper.state["current_input"] = user_input
 
             # Invoke the graph
             # Debug response
@@ -183,10 +187,10 @@ class Shelly(App):
             """
             #self.zapper.graph.invoke(self.zapper.state)
             #token_usage_chart = self.query_one("#token_usage", TokenUsagePlot)
-            output_log = self.query_one("#output", RichLog)
+            #output_log = self.query_one("#output", CustomRichLog)
             for event in self.zapper.graph.stream(self.state):
                 for node, values in event.items():
-                    output_log.write(f'DEBUGGERRRRR: node: {node}  values: {values}')
+                    #output_log.write(f'DEBUGGERRRRR: node: {node}  values: {values}')
 
                     if isinstance(values, dict) and 'generation_info' in values:
                         # For Groq
@@ -215,40 +219,23 @@ class Shelly(App):
 
         try:
             # Get output log first for debugging
-            output_log = self.query_one("#output", RichLog)
+            output_log = self.query_one("#output", CustomRichLog)
             if output_log:
-                output_log.write("\n=== Debug Information ===")
-
                 # List all available widgets
                 all_widgets = list(self.query("*"))
-                output_log.write("\nAvailable Widgets:")
-                for w in all_widgets:
-                    output_log.write(f"- {w.__class__.__name__}(id={w.id})")
+                self.zapper.output_log = output_log
 
                 # Try to get token usage widget
                 token_usage = self.query_one("#token_usage", TokenUsagePlot)
-                output_log.write(f"\nToken Usage Widget Found: {token_usage is not None}")
 
                 # Set up Zapper connections
                 if token_usage:
-                    self.zapper.output_log = output_log
                     self.zapper.token_usage_log = token_usage
-                    output_log.write("\nZapper connections established")
 
                 # Set up input widget
                 input_widget = self.query_one("#user_input", CustomTextArea)
                 if input_widget:
                     input_widget.focus()
-                    output_log.write("\nInput widget focused")
-
-                # Debug widget mounting status
-                output_log.write("\nWidget Mounting Status:")
-                for widget in all_widgets:
-                    output_log.write(f"- {widget.__class__.__name__}(id={widget.id})")
-                    output_log.write(f"  Mounted: {widget.is_mounted}")
-                    output_log.write(f"  Parent: {widget.parent.__class__.__name__ if widget.parent else 'None'}")
-
-                output_log.write("\n=== Initialization Complete ===")
 
         except Exception as e:
             if 'output_log' in locals():
@@ -424,8 +411,8 @@ class CustomTextArea(TextArea):
         if cursor is None:
             return
         current_line = self.document.get_line(cursor[0])
-        output_log = self._shelly_app.query_one("#output", RichLog)
-        #output = self._shelly_app.query_one("#output", RichLog)
+        output_log = self._shelly_app.query_one("#output", CustomRichLog)
+        #output = self._shelly_app.query_one("#output", CustomRichLog)
         if str("/file") in current_line and cursor[1] - (current_line.index("/file")+5) == 1:
             files = [Selection(str(file), str(num)) for num, file in enumerate(self.get_all_files_in_cwd())]
             #output_log.write(self.get_all_files_in_cwd())
@@ -455,8 +442,8 @@ class CustomTextArea(TextArea):
 
     async def on_key(self, event):
         """Handle key press events."""
-        output_log = self._shelly_app.query_one("#output", RichLog)
-        if event.key == "cmnd+enter" or event.key == "ctrl+enter":
+        output_log = self._shelly_app.query_one("#output", CustomRichLog)
+        if event.key == "alt+enter" or event.key == "ctrl+enter":
             content = self.text[self.last_submitted_position:].strip()
             self.last_submitted_position = len(content)
             if content.strip():
@@ -466,6 +453,7 @@ class CustomTextArea(TextArea):
         else:
             # Allow default key handling
             await super()._on_key(event)
+
 
 class ContextSelectionList(SelectionList):
     def __init__(self, *items, text_area: TextArea, id: str | None = None):
