@@ -1,9 +1,10 @@
-README.md
 setup.py
 agents/__init__.py
 agents/agents.py
 agents/command_parser.py
+agents/final_graph.py
 agents/graph.py
+agents/input_parser.py
 agents/react_graph.py
 cli/__init__.py
 cli/child_terminal.py

@@ -3,7 +3,7 @@ from textual import events
 from agents.command_parser import CommandParser
 from langchain_groq import ChatGroq
 from pydantic import SecretStr
-from agents.graph import Zap
+from agents.graph import SimpleChat
 from agents.react_graph import Splatter
 import os
 import asyncio
@@ -86,7 +86,8 @@ class Shelly(App):
         super().__init__()
         self.child_terminal = None
         #self.zapper = Zap()
-        self.zapper = Splatter()
+        #self.zapper = Splatter()
+        self.zapper = SimpleChat()
         api_key = os.getenv('GROQ_API_KEY')
         if not api_key:
             raise ValueError("GROQ_API_KEY environment variable is not set")
@@ -180,33 +181,21 @@ class Shelly(App):
 
             # Invoke the graph
             # Debug response
-            """
-            for event in self.zapper.graph.stream(self.zapper.state):
-                for value in event.values():
-                    output_log.write(f"\nAssistant: {value}")
-            """
-            #self.zapper.graph.invoke(self.zapper.state)
-            #token_usage_chart = self.query_one("#token_usage", TokenUsagePlot)
-            #output_log = self.query_one("#output", CustomRichLog)
             for event in self.zapper.graph.stream(self.state):
-                for node, values in event.items():
-                    #output_log.write(f'DEBUGGERRRRR: node: {node}  values: {values}')
+                for event in self.zapper.graph.stream(self.zapper.state):
+                    # Check if we have messages to stream
+                    if "current_messages" in event:
+                        # Stream the LLM response
+                        stream = self.zapper.llm.stream(event["current_messages"])
+                        response = next(stream)
+                        output_log.write(response)
 
-                    if isinstance(values, dict) and 'generation_info' in values:
-                        # For Groq
-                        if 'token_usage' in values['generation_info']:
-                            tokens = values['generation_info']['token_usage']
-                            total_tokens += tokens
-                            output_log.write(f"\nTokens used in {node}: {tokens}")
+                        for chunk in stream:
+                            output_log.write(chunk)
 
-                    # You might also find it in completion_tokens or prompt_tokens
-                    if isinstance(values, dict) and 'completion_tokens' in values:
-                        tokens = values['completion_tokens']
-                        total_tokens += tokens
-                        output_log.write(f"\nCompletion tokens: {tokens}")
-                #token_usage_chart.update_chart(cb.total_tokens)
-
-            #output_log.write(f"\nAssistant: {self.zapper.state["action_output"]}")
+                        # Store the complete response
+                        self.zapper.state["action_output"] = str(response)
+                output_log.write("\n")
 
         except Exception as e:
             import traceback
