@@ -26,10 +26,25 @@ import asyncio
 from functools import lru_cache
 from textual import on
 from shelly_types.types import CustomRichLog
+from functools import wraps
+import time
 
 
 
 load_dotenv()
+
+def debounce(wait):
+    def decorator(fn):
+        last_call = 0
+        @wraps(fn)
+        def debounced(*args, **kwargs):
+            nonlocal last_call
+            current_time = time.time()
+            if current_time - last_call >= wait:
+                last_call = current_time
+                return fn(*args, **kwargs)
+        return debounced
+    return decorator
 
 class Shelly(App):
     CSS = """
@@ -166,10 +181,10 @@ class Shelly(App):
         if self.child_terminal:
             self.child_terminal.kill_tmux_session()
 
+
+    @debounce(0.5)
     def process_input(self, user_input: str, output_log: CustomRichLog) -> None:
         """Process input through the graph"""
-
-        self.compose()
         total_tokens = 0
         try:
             # Update state with user input
@@ -178,24 +193,20 @@ class Shelly(App):
                 "content": user_input
             }]
             self.zapper.state["current_input"] = user_input
+            self.zapper.state["should_end"] = False  # Reset end flag
 
-            # Invoke the graph
-            # Debug response
-            for event in self.zapper.graph.stream(self.state):
-                for event in self.zapper.graph.stream(self.zapper.state):
-                    # Check if we have messages to stream
-                    if "current_messages" in event:
-                        # Stream the LLM response
-                        stream = self.zapper.llm.stream(event["current_messages"])
-                        response = next(stream)
-                        output_log.write(response)
+            # Single stream iteration
+            for event in self.zapper.graph.stream(self.zapper.state):
+                if "current_messages" in event:
+                    # Get response from LLM
+                    response = self.zapper.llm.invoke(event["current_messages"])
 
-                        for chunk in stream:
-                            output_log.write(chunk)
+                    # Write response
+                    if response and hasattr(response, 'content'):
+                        output_log.write("\nAssistant: " + str(response.content))
+                        self.zapper.state["action_output"] = str(response.content)
 
-                        # Store the complete response
-                        self.zapper.state["action_output"] = str(response)
-                output_log.write("\n")
+                    output_log.write("\n")  # Add final newline
 
         except Exception as e:
             import traceback
@@ -468,6 +479,7 @@ class AlertWidget(Static):
     def __init__(self, message: str):
         super().__init__(message)
         self.message = message
+
 
 
 async def main():

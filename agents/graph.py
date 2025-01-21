@@ -83,38 +83,29 @@ class SimpleChat:
             processed_input = self.process_commands(lines, state)
             context, context_metadata = self.knowledge_base.vector_store.query(state["current_input"], filter=None)
             self.output_log.write("context " + str(context))
+
+            # Extract the page_content from the context Documents
+            context_text = ""
+            if context:
+                context_text = "\n".join(doc.page_content for doc in context)
+
             messages = self.prompt.format_messages(
                 input=str(processed_input),
                 context=state["messages"],
-                knowledge_base_context=str(context) if context else ""
+                knowledge_base_context=context_text  # Use the extracted text instead of str(context)
             )
 
             # Initialize accumulated response
             full_response = ""
 
-            # Stream directly to RichLog
-            #stream = self.llm.stream(messages)
-            response = self.llm.invoke(messages)
-
             # Write assistant indicator as a single segment
             self.output_log.write("\nAssistant: ")
-            '''
-            buffer = ""
-            for chunk in stream:
-                if chunk.content:
-                    # Buffer the content and write in larger chunks
-                    buffer += chunk.content
-                    if len(buffer) >= 10 or '.' in buffer or '?' in buffer or '!' in buffer:
-                        self.output_log.write(buffer, animate=True)
-                        full_response += buffer
-                        buffer = ""x
 
-            # Write any remaining buffer
-            if buffer:
-                self.output_log.write(buffer)
-                full_response += buffer
-            '''
+            response = self.llm.invoke(messages)
+
             self.output_log.write(str(response.content))
+            full_response = response.content  # Save the response content
+
             # Add final newline
             self.output_log.write("\n")
 
@@ -134,6 +125,7 @@ class SimpleChat:
 
             return state
         except Exception as e:
+            print(f"Error in process_input: {str(e)}")  # Add this for debugging
             state["action_output"] = f"Error processing input: {str(e)}"
             state["should_end"] = True
             return state
@@ -376,7 +368,7 @@ class ChromaStore:
             embedding_function=self.embeddings
         )
         self.retriever = self.vector_store.as_retriever(
-            search_type="mmr", search_kwargs={"k":1, "fetch_k":5}
+            search_type="similarity", search_kwargs={"k":1, "score_threshold":0.7}
         )
 
     # Improvements for single document addition
@@ -446,30 +438,25 @@ class ChromaStore:
 
     # Improved query method
     def query(
-        self,
-        query: str,
-        filter: Optional[dict] = None,
-        top_k: int = 1,
-        fetch_k: int = 5
-    ) -> Tuple[List[Document], dict]:
+            self,
+            query: str,
+            filter: Optional[dict] = None,
+            top_k: int = 1,
+            fetch_k: int = 5
+        ) -> Tuple[List[Document], dict]:
         try:
-            # Allow dynamic adjustment of retrieval parameters
-            if top_k != self.retriever.search_kwargs["k"] or \
-                fetch_k != self.retriever.search_kwargs["fetch_k"]:
-                self.retriever.search_kwargs.update({
-                    "k": top_k,
-                    "fetch_k": fetch_k
-                })
+            # Use direct similarity search instead of retriever
+            results = self.vector_store.similarity_search(
+                query,
+                k=top_k,
+                filter=filter
+            )
 
-            results = self.retriever.invoke(query, filter=filter)
-
-            # Add query metadata
             query_metadata = {
                 "timestamp": datetime.now().isoformat(),
                 "query": query,
                 "filter": filter,
-                "top_k": top_k,
-                "fetch_k": fetch_k
+                "top_k": top_k
             }
 
             return results, query_metadata
