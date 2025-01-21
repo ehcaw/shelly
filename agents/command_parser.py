@@ -213,7 +213,7 @@ class CommandParser:
             # Handle slash commands
             if line.startswith('/file '):
                 file_path = line.split('/file ', 1)[1].strip()
-                context['current_file'] = file_path
+                context['current_file'] = file_path  # Store file path in context
                 all_tools.append(ParsedCommand(
                     tool_name="load_file",
                     tool_args={"file_path": file_path}
@@ -249,16 +249,11 @@ class CommandParser:
                     else:
                         tools = []
 
-                    # For code-related tools, just set minimum required args
+                    # Enhance tool args with context if needed
                     for tool in tools:
                         if tool.tool_name in ['explain_code', 'fix_code', 'analyze_code']:
-                            tool.tool_args = {
-                                'code': '',  # Empty string - tool will get content from messages
-                                'detail_level': 'high' if tool.tool_name == 'explain_code' else None,
-                                'analysis_type': 'general' if tool.tool_name == 'analyze_code' else None
-                            }
-                            # Remove None values
-                            tool.tool_args = {k: v for k, v in tool.tool_args.items() if v is not None}
+                            if 'current_file' in context:
+                                tool.tool_args['code_source'] = context['current_file']
 
                     all_tools.extend(tools)
 

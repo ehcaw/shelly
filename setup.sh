@@ -13,4 +13,7 @@ pip install -r requirements.txt
 echo "Installing repomix..."
 npm install -g repomix
 
+echo "Installing ollama embedding model"
+ollama pull nomic-embed-text
+
 echo "Setup complete!"

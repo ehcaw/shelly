@@ -21,7 +21,6 @@ class ChildTerminal:
         self.tmux_stack = [""]
         self.last_stdout = ""
         self.last_stderr = ""
-        self.error_log_file = f"/tmp/{session_name}_stderr.log"
 
     def send_code_segment(self, code_data):
         """
