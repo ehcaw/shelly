@@ -10,9 +10,10 @@ import asyncio
 from dotenv import load_dotenv
 from textual.widgets import RichLog, TextArea, Header, SelectionList
 from textual.widgets.selection_list import Selection
-from textual.containers import Vertical, Grid
+from textual.containers import Vertical, Grid, ScrollableContainer
 from textual_plotext import PlotextPlot
 from textual_components.token_usage_logger import TokenUsagePlot
+from textual_components.terminal_widget import TerminalWidget
 from textual.message import Message
 from textual.widgets import Static
 from textual.events import Mount
@@ -48,54 +49,83 @@ def debounce(wait):
 
 class Shelly(App):
     CSS = """
-        Grid#main_grid {
-            grid-size: 2;  /* 2 columns */
-            grid-columns: 3fr 1fr;  /* 75% - 25% split */
-            height: 100%;
-            margin: 1;
-        }
+    Grid#main_grid {
+        grid-size: 2;  /* 2 columns */
+        grid-columns: 3fr 1fr;  /* 75% - 25% split */
+        height: 100%;
+        margin: 1;
+    }
 
-        Vertical#left_panel {
-            width: 100%;
-            height: 100%;
-        }
+    Vertical#left_panel {
+        width: 100%;
+        height: 100%;
+    }
 
-        Vertical#right_panel {
-            width: 100%;
-            height: 100%;
-        }
+    Vertical#right_panel {
+        width: 100%;
+        height: 100%;
+    }
 
-        CustomTextArea {
-            height: 30%;
-            border: solid $accent;
-            margin-bottom: 1;
-        }
+    CustomTextArea {
+        height: 30%;
+        border: solid $accent;
+        margin-bottom: 1;
+    }
 
-        CustomTextArea:focus {
-            border: double $accent;
-        }
+    CustomTextArea:focus {
+        border: double $accent;
+    }
 
-        CustomRichLog {
-            height: 70%;
-            border: solid $accent;
-            background: $surface;
-            overflow-y: scroll;
-            padding: 1;
-        }
+    CustomRichLog {
+        height: 70%;
+        border: solid $accent;
+        background: $surface;
+        overflow-y: scroll;
+        padding: 1;
+    }
 
-        PlotextPlot {
-            height: 50%;
-            border: solid $accent;
-            margin-bottom: 1;
-        }
+    PlotextPlot {
+        height: 50%;
+        border: solid $accent;
+        margin-bottom: 1;
+    }
 
-        #output {
-            scrollbar-color: $accent $surface-darken-2;
-        }
+    #output {
+        scrollbar-color: $accent $surface-darken-2;
+    }
 
-        #token_usage {
-            margin-bottom: 1;
-        }
+    #token_usage {
+        margin-bottom: 1;
+    }
+
+    #terminal_panel {
+        height: 30%;  /* Adjust this value as needed */
+        border: solid $accent;
+        background: $surface;
+        overflow-y: scroll;
+    }
+
+    TerminalWidget {
+        background: $surface;
+        color: $text;
+        height: auto;
+        padding: 1;
+    }
+
+    ScrollableContainer {
+        height: 100%;
+        border: solid $accent;
+    }
+
+    #terminal_panel > .scrollbar {
+        background: $surface-lighten-2;
+        color: $surface-darken-2;
+        width: 1;
+    }
+
+    #terminal_panel > .scrollbar-corner {
+        background: $surface;
+    }
     """
     def __init__(self):
         super().__init__()
@@ -148,7 +178,9 @@ class Shelly(App):
             # Right side - 25% width
             with Vertical(id="right_panel"):
                 yield TokenUsagePlot(id="token_usage")
-                yield PlotextPlot(id="resource_usage")
+                with ScrollableContainer(id="terminal_panel"):
+                    yield TerminalWidget(id="terminals")
+                #yield PlotextPlot(id="resource_usage")
 
     def update_charts(self, token_plot: PlotextPlot, token_amount):
         self.token_usage.append(token_amount)

@@ -6,10 +6,19 @@ class TerminalWrapper:
     child_terminal: ChildTerminal
     listener: Listener
     monitor: ProcessMonitor
-    def __init__(self):
-        self.terminal = ChildTerminal(port=5555)
+    def __init__(self, port=None):
+        if port is None:
+            # Find an available port
+            import socket
+            s = socket.socket()
+            s.bind(('', 0))
+            port = s.getsockname()[1]
+            s.close()
+
+        self.port = port
+        self.terminal = ChildTerminal(port=self.port)
         self.monitor = ProcessMonitor(self.terminal)
-        self.listener = Listener(port=5555)
+        self.listener = Listener(port=self.port)
 
         self.monitor.start_monitoring()
         self.listener.start()
