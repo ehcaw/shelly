@@ -10,10 +10,10 @@ import asyncio
 from dotenv import load_dotenv
 from textual.widgets import RichLog, TextArea, Header, SelectionList
 from textual.widgets.selection_list import Selection
-from textual.containers import Vertical, Grid, ScrollableContainer
+from textual.containers import Vertical, Grid, ScrollableContainer, Container
 from textual_plotext import PlotextPlot
 from textual_components.token_usage_logger import TokenUsagePlot
-from textual_components.terminal_widget import TerminalWidget
+from textual_components.terminal_widget import PtyTerminal
 from textual.message import Message
 from textual.widgets import Static
 from textual.events import Mount
@@ -59,6 +59,7 @@ class Shelly(App):
     Vertical#left_panel {
         width: 100%;
         height: 100%;
+        margin-right: 1;
     }
 
     Vertical#right_panel {
@@ -68,63 +69,35 @@ class Shelly(App):
 
     CustomTextArea {
         height: 30%;
+        dock: top;
         border: solid $accent;
         margin-bottom: 1;
     }
 
-    CustomTextArea:focus {
-        border: double $accent;
-    }
-
     CustomRichLog {
-        height: 70%;
+        height: 1fr;  /* Changed to 1fr to take remaining space */
         border: solid $accent;
         background: $surface;
         overflow-y: scroll;
         padding: 1;
     }
 
-    PlotextPlot {
-        height: 50%;
-        border: solid $accent;
-        margin-bottom: 1;
-    }
-
-    #output {
-        scrollbar-color: $accent $surface-darken-2;
-    }
-
     #token_usage {
+        height: 40%;
+        border: solid $accent;
         margin-bottom: 1;
     }
 
     #terminal_panel {
-        height: 30%;  /* Adjust this value as needed */
+        height: 60%;  /* This plus token_usage should equal 100% */
         border: solid $accent;
-        background: $surface;
-        overflow-y: scroll;
     }
 
-    TerminalWidget {
+    PtyTerminal {
+        height: 100%;
         background: $surface;
         color: $text;
-        height: auto;
-        padding: 1;
-    }
-
-    ScrollableContainer {
-        height: 100%;
         border: solid $accent;
-    }
-
-    #terminal_panel > .scrollbar {
-        background: $surface-lighten-2;
-        color: $surface-darken-2;
-        width: 1;
-    }
-
-    #terminal_panel > .scrollbar-corner {
-        background: $surface;
     }
     """
     def __init__(self):
@@ -179,7 +152,8 @@ class Shelly(App):
             with Vertical(id="right_panel"):
                 yield TokenUsagePlot(id="token_usage")
                 with ScrollableContainer(id="terminal_panel"):
-                    yield TerminalWidget(id="terminals")
+                    yield PtyTerminal(id="terminal")
+                    #yield Terminal(command="bash", default_colors="textual", id="terminal")
                 #yield PlotextPlot(id="resource_usage")
 
     def update_charts(self, token_plot: PlotextPlot, token_amount):
