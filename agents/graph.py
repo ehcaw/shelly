@@ -24,8 +24,8 @@ import chromadb
 from langchain_chroma import Chroma
 from uuid import uuid4
 from langchain_core.documents import Document
-from langchain_ollama import OllamaEmbeddings
-from chromadb.utils import embedding_functions
+from langchain_openai.chat_models.base import BaseChatOpenAI
+from openai import OpenAI
 
 load_dotenv()
 
@@ -52,6 +52,7 @@ class SimpleChat:
             temperature=0,
             stop_sequences=None)
 
+        self.deepseek = OpenAI(api_key=os.getenv('DEEPSEEK_API_KEY'), base_url="https://api.deepseek.com")
         # Create prompt template
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", "You are a helpful AI coding assistant. Provide clear and concise responses for the user's requests. Use a combination of your own knowledge and the context, with more emphasis on using the context."),
@@ -71,10 +72,32 @@ class SimpleChat:
         self.graph = self.create_graph()
 
         # Child terminal wrapper
-        self.terminal_wrapper = TerminalWrapper()
+        #self.terminal_wrapper = TerminalWrapper()
 
         # Knowledge base
         self.knowledge_base = EnhancedKnowledgeBase()
+
+    def reason(self, user_input: str) -> str:
+        try:
+            response = self.deepseek.chat.completions.create(
+                model="deepseek-reasoner",
+                messages=[
+                    {"role": "system", "content": "You are a helpful AI coding assistant. Provide clear and concise responses for the user's requests)"},
+                    {"role": "user", "content": user_input},
+                ],
+                stop=['</think>'],
+                timeout=30  # Add a timeout to prevent infinite waiting,
+                stream=True
+            )
+            chain_of_thought = str(response.choices[0].message.content)
+            if len(chain_of_thought) > 0:
+                return chain_of_thought
+            return ""
+
+        except Exception as e:
+            self.output_log.write(f"Error in reasoning: {str(e)}\n")
+            #self.output_log.flush()
+            return f"Error occurred while processing: {str(e)}"
 
 
     def process_input(self, state: SimpleState) -> SimpleState:
@@ -82,15 +105,28 @@ class SimpleChat:
             lines = state["current_input"].splitlines()
             processed_input = self.process_commands(lines, state)
             context, context_metadata = self.knowledge_base.vector_store.query(state["current_input"], filter=None)
-            self.output_log.write("context " + str(context))
-
+            self.output_log.write(f'Grabbed {len(context)} relevant documents')
             # Extract the page_content from the context Documents
             context_text = ""
             if context:
                 context_text = "\n".join(doc.page_content for doc in context)
 
+            thought_process = self.reason(processed_input)
+
+
+            if thought_process.startswith("Error"):
+                thought_process = ""
+
+            PROMPT_TEMPLATE = """
+            Thought process: {thinking_tokens} </think>
+            Question: {question}
+            Answer:
+            """
+
+            self.output_log.write(f'Here is my thinking process: \n {thought_process}')
+
             messages = self.prompt.format_messages(
-                input=str(processed_input),
+                input=PROMPT_TEMPLATE.format(thinking_tokens=thought_process, question=processed_input),
                 context=state["messages"],
                 knowledge_base_context=context_text  # Use the extracted text instead of str(context)
             )
@@ -150,6 +186,8 @@ class SimpleChat:
                 processed_lines = self.add_docs(line, processed_lines)
             elif line.startswith("/search "):
                 processed_lines = self.search(line, processed_lines)
+            elif line.startswith("/clear "):
+                self.clear()
             else:
                 processed_lines.append(line)
         return "\n".join(processed_lines)
@@ -244,6 +282,9 @@ class SimpleChat:
         self.knowledge_base.add_entry(query, query_results, query)
         processed_lines.append(query + "\n")
         return processed_lines
+
+    def clear(self) -> None:
+        self.knowledge_base.vector_store.vector_store.delete_collection()
 
     def start_terminal_session(self):
         self.terminal_wrapper.open_terminal()

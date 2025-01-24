@@ -1,10 +1,8 @@
 from textual.app import App
 from textual import events
-from agents.command_parser import CommandParser
 from langchain_groq import ChatGroq
 from pydantic import SecretStr
 from agents.graph import SimpleChat
-from agents.react_graph import Splatter
 import os
 import asyncio
 from dotenv import load_dotenv
@@ -13,7 +11,7 @@ from textual.widgets.selection_list import Selection
 from textual.containers import Vertical, Grid, ScrollableContainer, Container
 from textual_plotext import PlotextPlot
 from textual_components.token_usage_logger import TokenUsagePlot
-from textual_components.terminal_widget import PtyTerminal
+from textual_components.terminal_widget import PtyTerminal, TabbedTerminals
 from textual.message import Message
 from textual.widgets import Static
 from textual.events import Mount
@@ -99,6 +97,36 @@ class Shelly(App):
         color: $text;
         border: solid $accent;
     }
+
+    TabbedTerminals {
+        height: 100%;
+        background: $surface;
+    }
+
+    Tabs {
+        background: $surface;
+        color: $text;
+        border-bottom: solid $accent;
+    }
+
+    Tab {
+        padding: 0 2;
+        text-style: bold;
+    }
+
+    Tab:hover {
+        background: $accent;
+    }
+
+    Tab.-active {
+        background: $accent;
+        color: $text;
+    }
+
+    #terminals {
+        height: 1fr;
+        background: $surface;
+    }
     """
     def __init__(self):
         super().__init__()
@@ -152,9 +180,7 @@ class Shelly(App):
             with Vertical(id="right_panel"):
                 yield TokenUsagePlot(id="token_usage")
                 with ScrollableContainer(id="terminal_panel"):
-                    yield PtyTerminal(id="terminal")
-                    #yield Terminal(command="bash", default_colors="textual", id="terminal")
-                #yield PlotextPlot(id="resource_usage")
+                    yield TabbedTerminals()
 
     def update_charts(self, token_plot: PlotextPlot, token_amount):
         self.token_usage.append(token_amount)
@@ -169,6 +195,21 @@ class Shelly(App):
         plt.plot(self.operations, self.token_usage)
         plt.title(f'Total Tokens: {self.total_token_usage}')
         token_plot.refresh()
+
+    BINDINGS = [
+        ("ctrl+t", "new_terminal", "New Terminal"),
+        ("ctrl+w", "close_terminal", "Close Terminal"),
+    ]
+
+    def action_new_terminal(self):
+        """Add a new terminal tab."""
+        terminal_tabs = self.query_one(TabbedTerminals)
+        terminal_tabs.add_terminal()
+
+    def action_close_terminal(self):
+        """Close the current terminal tab."""
+        terminal_tabs = self.query_one(TerminalTabs)
+        terminal_tabs.action_close_terminal()
 
 
     def on_key(self, event) -> None:

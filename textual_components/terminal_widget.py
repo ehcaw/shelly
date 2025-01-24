@@ -1,4 +1,6 @@
-from textual.widgets import Static
+from textual.widgets import Static, Tabs, Label, Footer, TabPane, TabbedContent
+from textual.containers import Container
+from textual.app import ComposeResult
 from textual.geometry import Size
 from textual.scroll_view import ScrollView
 from textual.strip import Strip
@@ -14,6 +16,8 @@ import signal
 from rich.text import Text
 from rich.style import Style
 from collections import deque
+from typing import Dict, Any
+import time
 
 # Setup logging
 
@@ -34,6 +38,7 @@ class PtyTerminal(Static, can_focus=True):
         background: $surface;
         color: $text;
         height: 100%;
+        width: 100%;
         border: solid $accent;
         overflow-y: scroll;
         padding: 0 1;
@@ -112,8 +117,20 @@ class PtyTerminal(Static, can_focus=True):
 
     def on_mount(self):
         """Initialize terminal when mounted"""
+        self.rows = self.size.height
+        self.cols = self.size.width
         self.start_pty()
         self.focus()
+
+    def on_resize(self, event):
+        """Handle terminal resize"""
+        if self.size.height == 0 or self.size.width == 0:
+            return
+
+        self.rows = self.size.height
+        self.cols = self.size.width
+        self._resize_pty()
+        self.refresh()
 
     def start_pty(self):
         """Start the PTY process with proper configuration"""
@@ -424,13 +441,6 @@ class PtyTerminal(Static, can_focus=True):
         self.refresh()
         self.post_message(self.Scrolled(self.scroll_position))
 
-    def on_resize(self, event):
-        """Handle terminal resize"""
-        self.rows = self.size.height
-        self.cols = self.size.width
-        self._resize_pty()
-        self.refresh()
-
     def unmount(self):
         """Clean up resources when widget is unmounted"""
         try:
@@ -444,3 +454,158 @@ class PtyTerminal(Static, can_focus=True):
             pass
         finally:
             super().unmount()
+    def on_focus(self) -> None:
+            """Handle gaining focus."""
+            self.border_style = "double"
+            self.refresh()
+
+    def on_blur(self) -> None:
+        """Handle losing focus."""
+        self.border_style = "solid"
+        self.refresh()
+
+
+class TabbedTerminals(Container):
+    """A widget that manages multiple terminal instances with tabs"""
+
+    DEFAULT_CSS = """
+    TabbedTerminals {
+        height: 100%;
+        width: 100%;
+        background: $surface;
+        layout: vertical;
+    }
+
+    Tabs {
+        dock: top;
+        height: 3;
+    }
+
+    #terminals {
+        height: 1fr;
+        width: 100%;
+        border: solid green;
+    }
+
+    PtyTerminal {
+        height: 100%;
+        width: 100%;
+    }
+    """
+
+    BINDINGS = [
+        ("ctrl+t", "new_terminal", "New Terminal"),
+        ("ctrl+w", "close_terminal", "Close Terminal"),
+    ]
+
+    def __init__(self):
+        super().__init__()
+        self.terminal_count = 0
+        self.terminals = {}
+
+    def compose(self) -> ComposeResult:
+        """Create the initial layout"""
+        yield Tabs()
+        yield Container(id="terminals")
+
+    async def on_mount(self) -> None:
+        """Add initial terminal when mounted"""
+        self.terminal_count += 1
+        terminal_id = f'terminal_{self.terminal_count}'
+
+        # Add tab
+        tabs = self.get_child_by_type(Tabs)
+        # Create the tab with explicit ID
+        response = tabs.add_tab("tab-terminal_1")  # Explicitly set the ID with tab- prefix
+        await response
+        # Add terminal
+        terminal = PtyTerminal(id=terminal_id)
+        self.terminals[f"tab-{terminal_id}"] = terminal
+        terminals = self.query_one("#terminals")
+        await terminals.mount(terminal)
+
+        # Ensure the first terminal is visible and focused
+        terminal.display = True
+        terminal.styles.display = "block"
+        terminal.focus()
+
+
+    async def add_terminal(self) -> None:
+        """Add a new terminal tab"""
+        self.terminal_count += 1
+
+        # Add tab
+        tabs = self.query_one(Tabs)
+        tabs.add_tab(str(self.terminal_count))
+
+        # Add terminal
+        terminal = PtyTerminal(id=str(self.terminal_count))
+        terminals = self.query_one("#terminals")
+        self.terminals[f"tab-{self.terminal_count}"]= terminal
+        await terminals.mount(terminal)
+
+        # Show the new terminal and hide others
+        self._show_active_terminal(f'tab-{self.terminal_count}')
+
+    def _show_active_terminal(self, active_id: str) -> None:
+        """Show active terminal and hide others"""
+        terminals = self.query_one("#terminals")
+        terminals.remove_children()
+        if active_id in self.terminals:
+            terminal = self.terminals[active_id]
+            terminals.mount(terminal)
+            terminal.focus()
+
+    def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
+        """Handle tab switching"""
+        if event.tab:
+            self._show_active_terminal(event.tab.id)
+
+    def action_new_terminal(self) -> None:
+        """Add a new terminal tab"""
+        self.add_terminal()
+
+    def action_close_terminal(self) -> None:
+        """Close the current terminal tab"""
+        if self.terminal_count <= 1:
+            return
+
+        # Get current active tab
+        tabs = self.query_one(Tabs)
+        current_tab = tabs.active_tab
+
+        if current_tab:
+            # Remove the terminal
+            terminal = self.query_one(f"#{current_tab.id}")
+            if terminal:
+                terminal.remove()
+
+            # Remove the tab
+            tabs.remove_tab(current_tab)
+
+            # Focus the next available terminal
+            if self.terminal_count > 0:
+                next_terminal = self.query_one(PtyTerminal)
+                if next_terminal:
+                    next_terminal.focus()
+                    next_terminal.display = True
+
+
+
+
+
+from textual.app import App
+
+class TerminalApp(App):
+    CSS = """
+    TerminalTabs {
+        height: 100%;
+        width: 100%;
+    }
+    """
+    def compose(self) -> ComposeResult:
+        yield TerminalTabs()
+
+if __name__ == "__main__":
+    app = TerminalApp()
+    app.run()
