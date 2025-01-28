@@ -1,18 +1,19 @@
 from dataclasses import dataclass
 from textual.widget import Widget
-from textual.widgets import TextArea, Button, RichLog
+from textual.widgets import TextArea, Button, RichLog, Input
 from textual.app import ComposeResult
 from textual.containers import ScrollableContainer, Vertical, Horizontal, VerticalScroll, Container
 from textual.binding import Binding
 from textual.message import Message
 from textual.reactive import var
 from textual import on, events
+from textual_autocomplete import AutoComplete, Dropdown, DropdownItem
 import asyncio
 
 from langchain.schema import BaseMessage
 
 from ..widget.chatbox import Chatbox, ChatboxContainer
-from ..widget.file_search import FileSearch, ContextSelectionList
+from ..widget.file_search import FileSearcher
 from ..display.chat_header import ChatHeader
 from ..display.typing_indicator import IsTyping
 
@@ -56,24 +57,6 @@ class ChatInputArea(TextArea):
         self.screen.action_search()
 
 
-    '''
-    async def on_text_area_changed(self) -> None:
-        cursor = self.cursor_location
-        if cursor is None:
-            return
-        current_line = self.document.get_line(cursor[0])
-        if str("/file") in current_line and cursor[1] - (current_line.index("/file")+5) == 1:
-            selection_list = FileSearch(file_search=True, text_area=self)
-            selection_list.focus()
-            await self.mount(selection_list)
-
-        if str("/dir") in current_line and cursor[1] - (current_line.index("/dir")+4) == 1:
-            selection_list = FileSearch(file_search=False, text_area = self) # look up directories
-            selection_list.focus()
-            await self.mount(selection_list)
-    '''
-
-
 class Chat(Widget):
     CSS_PATH = "styling.tcss"
 
@@ -96,7 +79,6 @@ class Chat(Widget):
 
     def compose(self) -> ComposeResult:
         #yield ChatHeader()
-        yield Container(id="overlay-container")
         with Vertical(id="chat-input-container"):
             with Horizontal(id="chat-input-text-container"):
                 yield self.input_area
@@ -136,17 +118,21 @@ class Chat(Widget):
             return
         current_line = self.input_area.document.get_line(cursor[0])
         if str("/file") in current_line and cursor[1] - (current_line.index("/file")+5) == 1:
-            #selection_list = FileSearch(file_search=True, text_area=self.input_area)
-            selection_list = ContextSelectionList(text_area=self.input_area)
-            overlay=self.query_one("#overlay-container")
-            await overlay.mount(selection_list)
+            selection_list = FileSearcher(text_area=self.input_area, search="file")
+            assert self.chat_container
+            #await self.chat_container.mount(selection_list)
             selection_list.focus()
 
         if str("/dir") in current_line and cursor[1] - (current_line.index("/dir")+4) == 1:
-            #selection_list = FileSearch(file_search=False, text_area = self.input_area) # look up directories
-            selection_list = ContextSelectionList(text_area=self.input_area)
-            overlay = self.query_one("#overlay-container")
-            await overlay.mount(selection_list)
+            selection_list = FileSearcher(text_area=self.input_area, search="dirs")
+            assert self.chat_container
+            p = Path('/')
+            autocomplete = AutoComplete(
+                input=Input(placeholder="Type to search..."),
+                dropdown=Dropdown(items=[DropdownItem(str(file)) for file in p.iterdir()])
+            )
+            #await self.chat_container.mount(selection_list)
+            await self.chat_container.mount(autocomplete)
             selection_list.focus()
 
 
@@ -157,8 +143,6 @@ class Chat(Widget):
             if len(user_message):
                 event.input_area.clear()
                 await self.chat(user_message)
-
-    #@on(ChatInputArea.Event)
 
     @on(Button.Pressed, selector='#btn-submit')
     def on_submit(self, event: Button.Pressed):
@@ -180,6 +164,7 @@ class Chat(Widget):
         if self.debug_log:
             self.debug_log.write("mounting message\n")
         container = ChatboxContainer()
+        assert self.chat_container
         await self.chat_container.mount(container)
         await container.mount(chatbox)
         self.scroll_to_latest_message()
@@ -279,52 +264,3 @@ class Chat(Widget):
         self.debug_log.write(f"{indent}{widget}\n")
         for child in widget.children:
             self._debug_widget_tree(child, depth + 1)
-
-
-
-from textual.widget import Widget
-from textual.app import ComposeResult
-from textual.containers import VerticalScroll
-from textual.widgets import Static, Button
-from rich.text import Text
-
-class TestChat(Widget):
-    DEFAULT_CSS = """
-    TestChat {
-        width: 100%;
-        height: 100%;
-        layout: vertical;
-    }
-
-    #chat-scroll-container {
-        width: 100%;
-        height: 1fr;  # This will make it take remaining space
-        border: solid red;
-        background: $boost;
-    }
-
-    Static {
-        width: 100%;
-        height: auto;
-        margin: 1;
-        padding: 1;
-        background: $panel;
-        border: solid green;
-    }
-    """
-
-    def compose(self) -> ComposeResult:
-        # Test button to add content
-        yield Button("Add Message", id="add-btn")
-
-        # The scroll container
-        self.scroll = VerticalScroll(id="chat-scroll-container")
-        yield self.scroll
-
-    async def on_button_pressed(self, event: Button.Pressed) -> None:
-        await self.add_message("Test message")
-
-    async def add_message(self, content: str) -> None:
-        message = Static(Text(content))
-        await self.scroll.mount(message)
-        self.scroll.scroll_end(animate=False)

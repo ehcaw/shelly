@@ -28,7 +28,7 @@ from shelly_types.types import CustomRichLog
 from functools import wraps
 import time
 # New Chat Components
-from textual_components.chat.chat import Chat, TestChat
+from textual_components.chat.chat import Chat
 from textual_components.widget.chatbox import Chatbox
 from textual_components.display.chat_header import ChatHeader
 from textual_components.display.typing_indicator import IsTyping
@@ -113,7 +113,6 @@ class Shelly(App):
                     graph=self.zapper,
                     state=self.zapper.state
                 )
-
 
             # Right side - Your existing components
             with Vertical(id="right_panel"):
@@ -393,40 +392,6 @@ class CustomTextArea(TextArea):
         cwd = Path.cwd()
         return [d.name for d in cwd.iterdir() if d.is_dir()]
 
-
-
-    async def on_text_area_changed(self) -> None:
-        cursor = self.cursor_location
-        if cursor is None:
-            return
-        current_line = self.document.get_line(cursor[0])
-        output_log = self._shelly_app.query_one("#output", CustomRichLog)
-        #output = self._shelly_app.query_one("#output", CustomRichLog)
-        if str("/file") in current_line and cursor[1] - (current_line.index("/file")+5) == 1:
-            files = [Selection(str(file), str(num)) for num, file in enumerate(self.get_all_files_in_cwd())]
-            #output_log.write(self.get_all_files_in_cwd())
-            selection_list = ContextSelectionList(*files, text_area=self, id="files")
-            selection_list.focus()
-            await self.mount(selection_list)
-
-        if str("/dir") in current_line and cursor[1] - (current_line.index("/dir")+4) == 1:
-            #directories = self.get_all_dirs_in_cwd()
-            directories = [Selection(str(dir), str(num)) for num, dir in enumerate(self.get_all_dirs_in_cwd())]
-            selection_list = ContextSelectionList(*directories, text_area=self, id="files")
-            selection_list.focus()
-            await self.mount(selection_list)
-
-    '''
-    async def on_selection_list_selected_changed(self):
-        """Handle the selection event"""
-        output_log = self._shelly_app.query_one("#output", RichLog)
-        selection_list = self.query_one("#files", SelectionList)
-        self.insert(selection_list.selected)
-        output_log.write(selection_list.selected)
-        #output.write("fileeee")
-        # Optionally remove the selection list
-        await selection_list.remove()
-    '''
 
 
     async def on_key(self, event):

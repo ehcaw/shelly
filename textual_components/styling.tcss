@@ -17,7 +17,6 @@ $left-border-trim: vkey $main-lighten-2 15%;
 Chat {
     width: 100%;
     height: 100%;
-    layout: vertical;
     layers: base overlay selection-list;
 
 Chat > VerticalScroll {
@@ -27,11 +26,12 @@ Chat > VerticalScroll {
     width: 100%;
     padding: 1;
     margin-top: 3;  /* Add space for input area */
+    border: solid red;
 }
 
 ChatInputArea {
   color: white;
-
+  height: auto;
 }
 #chat-input-text-container {
   height: auto;
