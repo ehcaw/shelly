@@ -1,82 +1,49 @@
 from textual.app import App, ComposeResult
-from textual.widgets import Footer, Label, Tabs
+from textual.widgets import Static, Button, Header
+from textual.containers import VerticalScroll
+from rich.text import Text
+from textual_components.widget.chatbox import ChatboxContainer, Chatbox
 
-NAMES = [
-    "Paul Atreidies",
-    "Duke Leto Atreides",
-    "Lady Jessica",
-    "Gurney Halleck",
-    "Baron Vladimir Harkonnen",
-    "Glossu Rabban",
-    "Chani",
-    "Silgar",
-]
-
-
-class TabsApp(App):
-    """Demonstrates the Tabs widget."""
-
+class ScrollTest(App):
     CSS = """
-    Tabs {
-        dock: top;
-    }
     Screen {
-        align: center middle;
+        layout: vertical;
     }
-    Label {
-        margin:1 1;
+
+    VerticalScroll {
+        height: 1fr;
         width: 100%;
-        height: 100%;
-        background: $panel;
-        border: tall $primary;
-        content-align: center middle;
+        border: solid red;
+        background: yellow 30%;
+    }
+
+    Static {
+        width: 100%;
+        margin: 1;
+        padding: 1;
+    }
+
+    Button {
+        margin: 1;
     }
     """
 
-    BINDINGS = [
-        ("a", "add", "Add tab"),
-        ("r", "remove", "Remove active tab"),
-        ("c", "clear", "Clear tabs"),
-    ]
-
     def compose(self) -> ComposeResult:
-        yield Tabs(NAMES[0])
-        yield Label()
-        yield Footer()
+        yield Header()
+        yield Button("Add Message", id="add-btn")
+        self.scroll = VerticalScroll()
+        yield self.scroll
 
-    def on_mount(self) -> None:
-        """Focus the tabs when the app starts."""
-        self.query_one(Tabs).focus()
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
+        await self.add_message(f"Test message {len(self.scroll.children)}")
 
-    def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
-        """Handle TabActivated message sent by Tabs."""
-        label = self.query_one(Label)
-        if event.tab is None:
-            # When the tabs are cleared, event.tab will be None
-            label.visible = False
-        else:
-            label.visible = True
-            label.update(event.tab.label)
-
-    def action_add(self) -> None:
-        """Add a new tab."""
-        tabs = self.query_one(Tabs)
-        # Cycle the names
-        NAMES[:] = [*NAMES[1:], NAMES[0]]
-        tabs.add_tab(NAMES[0])
-
-    def action_remove(self) -> None:
-        """Remove active tab."""
-        tabs = self.query_one(Tabs)
-        active_tab = tabs.active_tab
-        if active_tab is not None:
-            tabs.remove_tab(active_tab.id)
-
-    def action_clear(self) -> None:
-        """Clear the tabs."""
-        self.query_one(Tabs).clear()
-
+    async def add_message(self, content: str) -> None:
+        #message = Static(Text(content))
+        chatbox = Chatbox(content=content)
+        container = ChatboxContainer(chatbox)
+        await self.scroll.mount(container)
+        self.scroll.scroll_end(animate=False)
 
 if __name__ == "__main__":
-    app = TabsApp()
+    app = ScrollTest()
     app.run()

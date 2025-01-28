@@ -17,6 +17,7 @@ import subprocess
 import signal
 from pathlib import Path
 from repomixer.context_collector import ContextCollector
+from langchain.schema import BaseMessage
 
 # Example run
 def main(error_info: str, flag: Optional[str] = None, project_root: str = './'):
@@ -459,3 +460,18 @@ def kill_process_on_port(port):
         print(f"Error: {e}")
 
 # [END utils.py]
+
+def new_message_of_type(message_type: type[BaseMessage], *, content: str = "", **kwargs):
+    """
+    Creates a new message of the specified type with content and additional kwargs.
+    message_type should be AIMessage, HumanMessage, etc. - not BaseMessage itself
+    """
+    if not issubclass(message_type, BaseMessage):
+        raise ValueError("message_type must be a subclass of BaseMessage")
+
+    return message_type(
+        content=content,
+        additional_kwargs={
+            **kwargs,
+        },
+    )

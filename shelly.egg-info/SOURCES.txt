@@ -11,6 +11,7 @@ cli/child_terminal.py
 cli/cli.py
 cli/listener.py
 cli/process_monitor.py
+cli/terminal_wrapper.py
 shelly.egg-info/PKG-INFO
 shelly.egg-info/SOURCES.txt
 shelly.egg-info/dependency_links.txt
@@ -18,6 +19,7 @@ shelly.egg-info/entry_points.txt
 shelly.egg-info/requires.txt
 shelly.egg-info/top_level.txt
 shelly_types/__init__.py
+shelly_types/ollama_embedding.py
 shelly_types/types.py
 shelly_types/utils.py
 test/test.py

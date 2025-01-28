@@ -1,4 +1,4 @@
-from textual.widgets import Static, Tabs, Label, Footer, TabPane, TabbedContent
+from textual.widgets import Static, Tabs, Label, Footer, TabPane, TabbedContent, Tab
 from textual.containers import Container
 from textual.app import ComposeResult
 from textual.geometry import Size
@@ -509,24 +509,28 @@ class TabbedTerminals(Container):
         yield Container(id="terminals")
 
     async def on_mount(self) -> None:
-        """Add initial terminal when mounted"""
         self.terminal_count += 1
-        terminal_id = f'terminal_{self.terminal_count}'
+        terminal_id = f"terminal_{self.terminal_count}"
+        tab_id = f"tab-{terminal_id}"  # or choose any ID you like
 
-        # Add tab
-        tabs = self.get_child_by_type(Tabs)
-        # Create the tab with explicit ID
-        response = tabs.add_tab("tab-terminal_1")  # Explicitly set the ID with tab- prefix
-        await response
-        # Add terminal
+        # Query your Tabs widget explicitly
+        tabs = self.query_one(Tabs)
+
+        # Supply both a label and a known ID for your new tab
+        await tabs.add_tab(Tab(label=f"Terminal {self.terminal_count}", id=tab_id))
+
+        # Create your Terminal widget (no "tab-" prefix needed here, just use terminal_id)
         terminal = PtyTerminal(id=terminal_id)
-        self.terminals[f"tab-{terminal_id}"] = terminal
-        terminals = self.query_one("#terminals")
-        await terminals.mount(terminal)
+        self.terminals[tab_id] = terminal
 
-        # Ensure the first terminal is visible and focused
-        terminal.display = True
-        terminal.styles.display = "block"
+        # Mount it into the #terminals container
+        terminals_container = self.query_one("#terminals")
+        await terminals_container.mount(terminal)
+
+        # Activate the newly created tab
+        tabs.active = tab_id
+
+        # Optionally ensure the terminal is visible/focused
         terminal.focus()
 
 

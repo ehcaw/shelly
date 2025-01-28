@@ -27,7 +27,11 @@ from textual import on
 from shelly_types.types import CustomRichLog
 from functools import wraps
 import time
-
+# New Chat Components
+from textual_components.chat.chat import Chat, TestChat
+from textual_components.widget.chatbox import Chatbox
+from textual_components.display.chat_header import ChatHeader
+from textual_components.display.typing_indicator import IsTyping
 
 
 load_dotenv()
@@ -46,6 +50,7 @@ def debounce(wait):
     return decorator
 
 class Shelly(App):
+    CSS_PATH = "textual_components/styling.tcss"
     CSS = """
     Grid#main_grid {
         grid-size: 2;  /* 2 columns */
@@ -53,79 +58,9 @@ class Shelly(App):
         height: 100%;
         margin: 1;
     }
-
-    Vertical#left_panel {
+     #left_panel {
+        height: 100%;
         width: 100%;
-        height: 100%;
-        margin-right: 1;
-    }
-
-    Vertical#right_panel {
-        width: 100%;
-        height: 100%;
-    }
-
-    CustomTextArea {
-        height: 30%;
-        dock: top;
-        border: solid $accent;
-        margin-bottom: 1;
-    }
-
-    CustomRichLog {
-        height: 1fr;  /* Changed to 1fr to take remaining space */
-        border: solid $accent;
-        background: $surface;
-        overflow-y: scroll;
-        padding: 1;
-    }
-
-    #token_usage {
-        height: 40%;
-        border: solid $accent;
-        margin-bottom: 1;
-    }
-
-    #terminal_panel {
-        height: 60%;  /* This plus token_usage should equal 100% */
-        border: solid $accent;
-    }
-
-    PtyTerminal {
-        height: 100%;
-        background: $surface;
-        color: $text;
-        border: solid $accent;
-    }
-
-    TabbedTerminals {
-        height: 100%;
-        background: $surface;
-    }
-
-    Tabs {
-        background: $surface;
-        color: $text;
-        border-bottom: solid $accent;
-    }
-
-    Tab {
-        padding: 0 2;
-        text-style: bold;
-    }
-
-    Tab:hover {
-        background: $accent;
-    }
-
-    Tab.-active {
-        background: $accent;
-        color: $text;
-    }
-
-    #terminals {
-        height: 1fr;
-        background: $surface;
     }
     """
     def __init__(self):
@@ -171,14 +106,19 @@ class Shelly(App):
         yield Header(id="header", name="Shelly", show_clock=True)
 
         with Grid(id="main_grid"):
-            # Left side - 75% width
+            # Left side - Chat component
             with Vertical(id="left_panel"):
-                yield CustomTextArea(app=self, id="user_input", theme="monokai")
-                yield CustomRichLog(id="output", wrap=True)
+                yield Chat(
+                    llm=self.versatile_llm,
+                    graph=self.zapper,
+                    state=self.zapper.state
+                )
 
-            # Right side - 25% width
+
+            # Right side - Your existing components
             with Vertical(id="right_panel"):
-                yield TokenUsagePlot(id="token_usage")
+                #yield TokenUsagePlot(id="token_usage")
+                yield RichLog(id="debug_log")
                 with ScrollableContainer(id="terminal_panel"):
                     yield TabbedTerminals()
 
@@ -208,7 +148,7 @@ class Shelly(App):
 
     def action_close_terminal(self):
         """Close the current terminal tab."""
-        terminal_tabs = self.query_one(TerminalTabs)
+        terminal_tabs = self.query_one(TabbedTerminals)
         terminal_tabs.action_close_terminal()
 
 
@@ -263,7 +203,9 @@ class Shelly(App):
     async def on_mount(self) -> None:
         """Called after the app is mounted"""
         await asyncio.sleep(1)  # Wait for widgets to be ready
-
+        debug_log = self.query_one("#debug_log", RichLog)
+        chat = self.query_one(Chat)
+        chat.debug_log = debug_log
         try:
             # Get output log first for debugging
             output_log = self.query_one("#output", CustomRichLog)

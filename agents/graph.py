@@ -86,16 +86,18 @@ class SimpleChat:
                     {"role": "user", "content": user_input},
                 ],
                 stop=['</think>'],
-                timeout=30  # Add a timeout to prevent infinite waiting,
+                timeout=30,  # Add a timeout to prevent infinite waiting,
                 stream=True
             )
-            chain_of_thought = str(response.choices[0].message.content)
-            if len(chain_of_thought) > 0:
-                return chain_of_thought
-            return ""
+            full_response = ""
+            #chain_of_thought = str(response.choices[0].message.content)
+            for chunk in response:
+                if chunk.choices[0].delta.reasoning_content:
+                    full_response += chunk.choices[0].delta.reasoning_content
+
+            return full_response
 
         except Exception as e:
-            self.output_log.write(f"Error in reasoning: {str(e)}\n")
             #self.output_log.flush()
             return f"Error occurred while processing: {str(e)}"
 
@@ -105,17 +107,15 @@ class SimpleChat:
             lines = state["current_input"].splitlines()
             processed_input = self.process_commands(lines, state)
             context, context_metadata = self.knowledge_base.vector_store.query(state["current_input"], filter=None)
-            self.output_log.write(f'Grabbed {len(context)} relevant documents')
             # Extract the page_content from the context Documents
             context_text = ""
             if context:
                 context_text = "\n".join(doc.page_content for doc in context)
 
-            thought_process = self.reason(processed_input)
-
-
-            if thought_process.startswith("Error"):
-                thought_process = ""
+            #thought_process = self.reason(processed_input)
+            #if thought_process.startswith("Error"):
+                #thought_process = ""
+            thought_process = ""
 
             PROMPT_TEMPLATE = """
             Thought process: {thinking_tokens} </think>
@@ -123,7 +123,6 @@ class SimpleChat:
             Answer:
             """
 
-            self.output_log.write(f'Here is my thinking process: \n {thought_process}')
 
             messages = self.prompt.format_messages(
                 input=PROMPT_TEMPLATE.format(thinking_tokens=thought_process, question=processed_input),
@@ -135,15 +134,12 @@ class SimpleChat:
             full_response = ""
 
             # Write assistant indicator as a single segment
-            self.output_log.write("\nAssistant: ")
 
             response = self.llm.invoke(messages)
 
-            self.output_log.write(str(response.content))
             full_response = response.content  # Save the response content
-
+            state["action_output"] = str(response.content)
             # Add final newline
-            self.output_log.write("\n")
 
             # Update state with messages
             state["messages"].append({

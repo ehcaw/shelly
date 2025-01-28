@@ -1,0 +1,245 @@
+Couldn't connect to devtools ( ws://127.0.0.1:8081 )
+---
+loop=<_UnixSelectorEventLoop running=True closed=False debug=False>
+features=frozenset({'devtools', 'debug'})
+Writing logs to '/Users/ryannguyen/projects/python/shelly/textual.log'
+STARTED FileMonitor(set())
+Load() >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'focus', 'dark'}) method=None
+driver=<textual.drivers.web_driver.WebDriver object at 0x118662a50>
+Compose() >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'focus', 'dark'}) method=<App.on_compose>
+Compose() >>> Screen(id='_default') method=<Widget.on_compose>
+Compose() >>> Header() method=<Widget.on_compose>
+Compose() >>> Button(id='add-btn') method=<Widget.on_compose>
+Mount() >>> Button(id='add-btn') method=<Widget.on_mount>
+Compose() >>> VerticalScroll() method=<Widget.on_compose>
+Mount() >>> VerticalScroll() method=<Widget.on_mount>
+Compose() >>> ToastRack(id='textual-toastrack') method=<Widget.on_compose>
+Mount() >>> ToastRack(id='textual-toastrack') method=<Widget.on_mount>
+Compose() >>> Tooltip(id='textual-tooltip') method=<Widget.on_compose>
+Mount() >>> Tooltip(id='textual-tooltip') method=<Widget.on_mount>
+Compose() >>> HeaderIcon() method=<Widget.on_compose>
+Mount() >>> HeaderIcon() method=<HeaderIcon.on_mount>
+Mount() >>> HeaderIcon() method=<Widget.on_mount>
+Callback(callback=functools.partial(<bound method DOMNode._initialize_data_bind of HeaderIcon()>)) >>> HeaderIcon() method=<MessagePump.on_callback>
+Compose() >>> HeaderTitle() method=<Widget.on_compose>
+Mount() >>> HeaderTitle() method=<Widget.on_mount>
+Compose() >>> HeaderClockSpace() method=<Widget.on_compose>
+Mount() >>> HeaderClockSpace() method=<Widget.on_mount>
+Mount() >>> Header() method=<Header.on_mount>
+Mount() >>> Header() method=<Widget.on_mount>
+Callback(callback=functools.partial(<function Widget.mount.<locals>.update_styles at 0x11898a980>, [HeaderIcon(), HeaderTitle(), HeaderClockSpace()])) >>> Header() method=<MessagePump.on_callback>
+Resize(size=Size(width=237, height=54)) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'focus', 'dark'}) method=<App.on_resize>
+Mount() >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'focus', 'dark'}) method=None
+ready in 56 milliseconds
+Callback(callback=functools.partial(<bound method MessagePump.post_message of ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'focus', 'dark'})>, AppBlur())) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'focus', 'dark'}) method=<MessagePump.on_callback>
+Resize(size=Size(width=237, height=54)) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'focus', 'dark'}) method=<App.on_resize>
+Callback(callback=functools.partial(<bound method Reactive._compute of <class 'textual.reactive.Reactive'>>, ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'focus', 'dark'}))) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'focus', 'dark'}) method=<MessagePump.on_callback>
+Callback(callback=functools.partial(<bound method Reactive._compute of <class 'textual.reactive.Reactive'>>, ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'focus', 'dark'}))) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'focus', 'dark'}) method=<MessagePump.on_callback>
+AppBlur() >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'focus', 'dark'}) method=<App.on_app_blur>
+Compose() >>> ScrollBar(name='vertical', window_virtual_size=100, window_size=0, position=0, thickness=2) method=<Widget.on_compose>
+Mount() >>> ScrollBar(name='vertical', window_virtual_size=100, window_size=0, position=0, thickness=2) method=<Widget.on_mount>
+Mount() >>> Screen(id='_default') method=<Screen.on_mount>
+Mount() >>> Screen(id='_default') method=<Widget.on_mount>
+ScreenResume() >>> Screen(id='_default') method=<Screen.on_screen_resume>
+Callback(callback=functools.partial(<function Widget.mount.<locals>.update_styles at 0x118989c60>, [Header(), Button(id='add-btn'), VerticalScroll()])) >>> Screen(id='_default') method=<MessagePump.on_callback>
+Callback(callback=functools.partial(<function Widget.mount.<locals>.update_styles at 0x118976700>, [Header(), Button(id='add-btn'), VerticalScroll(), ToastRack(id='textual-toastrack'), Tooltip(id='textual-tooltip')])) >>> Screen(id='_default') method=<MessagePump.on_callback>
+Update(Button(id='add-btn')) >>> Screen(id='_default') method=<Screen.on_update>
+Update(ToastRack(id='textual-toastrack')) >>> Screen(id='_default') method=<Screen.on_update>
+Layout() >>> Screen(id='_default') method=<Screen.on_layout>
+Update(Tooltip(id='textual-tooltip')) >>> Screen(id='_default') method=<Screen.on_update>
+Update(HeaderIcon()) >>> Screen(id='_default') method=<Screen.on_update>
+Update(Header()) >>> Screen(id='_default') method=<Screen.on_update>
+Layout() >>> Screen(id='_default') method=<Screen.on_layout>
+Resize(size=Size(width=237, height=54)) >>> Screen(id='_default') method=<Screen.on_resize>
+Update(HeaderTitle()) >>> Screen(id='_default') method=<Screen.on_update>
+Update(ScrollBar(name='vertical', window_virtual_size=100, window_size=0, position=0, thickness=2)) >>> Screen(id='_default') method=<Screen.on_update>
+Callback(callback=functools.partial(<bound method Reactive._compute of <class 'textual.reactive.Reactive'>>, Screen(id='_default'))) >>> Screen(id='_default') method=<MessagePump.on_callback>
+Callback(callback=functools.partial(<bound method Reactive._compute of <class 'textual.reactive.Reactive'>>, Screen(id='_default'))) >>> Screen(id='_default') method=<MessagePump.on_callback>
+Resize(size=Size(width=237, height=54)) >>> Screen(id='_default') method=<Screen.on_resize>
+Show() >>> Screen(id='_default') method=<Widget.on_show>
+Callback(callback=functools.partial(<bound method ToastRack.show of ToastRack(id='textual-toastrack')>, <textual.notifications.Notifications object at 0x118661550>)) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=<MessagePump.on_callback>
+Ready() >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+Resize(size=Size(width=10, height=1), container_size=Size(width=8, height=1)) >>> HeaderClockSpace() method=None
+Show() >>> HeaderClockSpace() method=<Widget.on_show>
+Resize(size=Size(width=8, height=1), container_size=Size(width=6, height=1)) >>> HeaderIcon() method=None
+Show() >>> HeaderIcon() method=<Widget.on_show>
+Resize(size=Size(width=219, height=1)) >>> HeaderTitle() method=None
+Show() >>> HeaderTitle() method=<Widget.on_show>
+Resize(size=Size(width=237, height=1)) >>> Header() method=None
+Show() >>> Header() method=<Widget.on_show>
+Resize(size=Size(width=237, height=48), virtual_size=Size(width=235, height=46), container_size=Size(width=235, height=46)) >>> VerticalScroll() method=None
+Show() >>> VerticalScroll() method=<Widget.on_show>
+Resize(size=Size(width=16, height=3), container_size=Size(width=16, height=1)) >>> Button(id='add-btn') method=None
+Show() >>> Button(id='add-btn') method=<Widget.on_show>
+Update(HeaderClockSpace()) >>> Screen(id='_default') method=<Screen.on_update>
+Layout() >>> Screen(id='_default') method=<Screen.on_layout>
+Update(HeaderIcon()) >>> Screen(id='_default') method=<Screen.on_update>
+Layout() >>> Screen(id='_default') method=<Screen.on_layout>
+Update(HeaderTitle()) >>> Screen(id='_default') method=<Screen.on_update>
+Layout() >>> Screen(id='_default') method=<Screen.on_layout>
+Update(Header()) >>> Screen(id='_default') method=<Screen.on_update>
+Layout() >>> Screen(id='_default') method=<Screen.on_layout>
+Update(VerticalScroll()) >>> Screen(id='_default') method=<Screen.on_update>
+Layout() >>> Screen(id='_default') method=<Screen.on_layout>
+Update(Button(id='add-btn')) >>> Screen(id='_default') method=<Screen.on_update>
+Layout() >>> Screen(id='_default') method=<Screen.on_layout>
+Enter() >>> VerticalScroll() method=<Widget.on_enter>
+MouseMove(VerticalScroll(), x=92, y=20, delta_x=92, delta_y=26, screen_y=26) >>> VerticalScroll() method=None
+Enter() >>> Screen(id='_default') method=<Widget.on_enter>
+MouseMove(VerticalScroll(), x=92, y=20, delta_x=92, delta_y=26, screen_y=26) >>> Screen(id='_default') method=None
+Enter() >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=92, y=20, delta_x=92, delta_y=26, screen_y=26) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=93, y=20, delta_x=1, screen_y=26) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=93, y=20, delta_x=1, screen_y=26) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=93, y=20, delta_x=1, screen_y=26) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=93, y=19, delta_y=-1, screen_y=25) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=93, y=19, delta_y=-1, screen_y=25) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=93, y=19, delta_y=-1, screen_y=25) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=92, y=19, delta_x=-1, screen_y=25) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=92, y=19, delta_x=-1, screen_y=25) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=92, y=19, delta_x=-1, screen_y=25) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=91, y=18, delta_x=-1, delta_y=-1, screen_y=24) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=91, y=18, delta_x=-1, delta_y=-1, screen_y=24) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=91, y=18, delta_x=-1, delta_y=-1, screen_y=24) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=89, y=18, delta_x=-2, screen_y=24) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=89, y=18, delta_x=-2, screen_y=24) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=89, y=18, delta_x=-2, screen_y=24) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=88, y=17, delta_x=-1, delta_y=-1, screen_y=23) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=88, y=17, delta_x=-1, delta_y=-1, screen_y=23) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=88, y=17, delta_x=-1, delta_y=-1, screen_y=23) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=86, y=16, delta_x=-2, delta_y=-1, screen_y=22) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=86, y=16, delta_x=-2, delta_y=-1, screen_y=22) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=86, y=16, delta_x=-2, delta_y=-1, screen_y=22) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=83, y=16, delta_x=-3, screen_y=22) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=83, y=16, delta_x=-3, screen_y=22) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=83, y=16, delta_x=-3, screen_y=22) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=81, y=15, delta_x=-2, delta_y=-1, screen_y=21) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=81, y=15, delta_x=-2, delta_y=-1, screen_y=21) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=81, y=15, delta_x=-2, delta_y=-1, screen_y=21) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=79, y=15, delta_x=-2, screen_y=21) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=79, y=15, delta_x=-2, screen_y=21) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=79, y=15, delta_x=-2, screen_y=21) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=76, y=14, delta_x=-3, delta_y=-1, screen_y=20) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=76, y=14, delta_x=-3, delta_y=-1, screen_y=20) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=76, y=14, delta_x=-3, delta_y=-1, screen_y=20) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=75, y=14, delta_x=-1, screen_y=20) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=75, y=14, delta_x=-1, screen_y=20) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=75, y=14, delta_x=-1, screen_y=20) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=73, y=14, delta_x=-2, screen_y=20) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=73, y=14, delta_x=-2, screen_y=20) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=73, y=14, delta_x=-2, screen_y=20) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=71, y=14, delta_x=-2, screen_y=20) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=71, y=14, delta_x=-2, screen_y=20) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=71, y=14, delta_x=-2, screen_y=20) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=70, y=14, delta_x=-1, screen_y=20) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=70, y=14, delta_x=-1, screen_y=20) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=70, y=14, delta_x=-1, screen_y=20) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=69, y=13, delta_x=-1, delta_y=-1, screen_y=19) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=69, y=13, delta_x=-1, delta_y=-1, screen_y=19) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=69, y=13, delta_x=-1, delta_y=-1, screen_y=19) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=68, y=13, delta_x=-1, screen_y=19) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=68, y=13, delta_x=-1, screen_y=19) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=68, y=13, delta_x=-1, screen_y=19) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=65, y=12, delta_x=-3, delta_y=-1, screen_y=18) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=65, y=12, delta_x=-3, delta_y=-1, screen_y=18) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=65, y=12, delta_x=-3, delta_y=-1, screen_y=18) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=57, y=9, delta_x=-8, delta_y=-3, screen_y=15) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=57, y=9, delta_x=-8, delta_y=-3, screen_y=15) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=57, y=9, delta_x=-8, delta_y=-3, screen_y=15) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=49, y=6, delta_x=-8, delta_y=-3, screen_y=12) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=49, y=6, delta_x=-8, delta_y=-3, screen_y=12) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=49, y=6, delta_x=-8, delta_y=-3, screen_y=12) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=41, y=4, delta_x=-8, delta_y=-2, screen_y=10) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=41, y=4, delta_x=-8, delta_y=-2, screen_y=10) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=41, y=4, delta_x=-8, delta_y=-2, screen_y=10) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=38, y=3, delta_x=-3, delta_y=-1, screen_y=9) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=38, y=3, delta_x=-3, delta_y=-1, screen_y=9) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=38, y=3, delta_x=-3, delta_y=-1, screen_y=9) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=35, y=2, delta_x=-3, delta_y=-1, screen_y=8) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=35, y=2, delta_x=-3, delta_y=-1, screen_y=8) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=35, y=2, delta_x=-3, delta_y=-1, screen_y=8) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=34, y=2, delta_x=-1, screen_y=8) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=34, y=2, delta_x=-1, screen_y=8) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=34, y=2, delta_x=-1, screen_y=8) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=33, y=2, delta_x=-1, screen_y=8) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=33, y=2, delta_x=-1, screen_y=8) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=33, y=2, delta_x=-1, screen_y=8) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=32, y=1, delta_x=-1, delta_y=-1, screen_y=7) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=32, y=1, delta_x=-1, delta_y=-1, screen_y=7) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=32, y=1, delta_x=-1, delta_y=-1, screen_y=7) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=31, y=1, delta_x=-1, screen_y=7) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=31, y=1, delta_x=-1, screen_y=7) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=31, y=1, delta_x=-1, screen_y=7) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=30, y=1, delta_x=-1, screen_y=7) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=30, y=1, delta_x=-1, screen_y=7) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=30, y=1, delta_x=-1, screen_y=7) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=29, y=1, delta_x=-1, screen_y=7) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=29, y=1, delta_x=-1, screen_y=7) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=29, y=1, delta_x=-1, screen_y=7) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=29, y=0, delta_y=-1, screen_y=6) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=29, y=0, delta_y=-1, screen_y=6) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=29, y=0, delta_y=-1, screen_y=6) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=28, y=0, delta_x=-1, screen_y=6) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=28, y=0, delta_x=-1, screen_y=6) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=28, y=0, delta_x=-1, screen_y=6) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=25, y=0, delta_x=-3, screen_y=6) >>> VerticalScroll() method=None
+MouseMove(VerticalScroll(), x=25, y=0, delta_x=-3, screen_y=6) >>> Screen(id='_default') method=None
+MouseMove(VerticalScroll(), x=25, y=0, delta_x=-3, screen_y=6) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+Leave() >>> VerticalScroll() method=<Widget.on_leave>
+Enter() >>> Screen(id='_default') method=<Widget.on_enter>
+MouseMove(None, x=22, y=5, delta_x=-3, delta_y=-1) >>> Screen(id='_default') method=None
+Leave() >>> Screen(id='_default') method=<Widget.on_leave>
+Enter() >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(None, x=22, y=5, delta_x=-3, delta_y=-1) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+Leave() >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(None, x=19, y=5, delta_x=-3) >>> Screen(id='_default') method=None
+MouseMove(None, x=19, y=5, delta_x=-3) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+Leave() >>> Screen(id='_default') method=<Widget.on_leave>
+Enter() >>> Button(id='add-btn') method=<Widget.on_enter>
+MouseMove(Button(id='add-btn'), x=14, y=2, delta_x=-4, delta_y=-1, screen_x=15, screen_y=4) >>> Button(id='add-btn') method=None
+Leave() >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+Enter() >>> Screen(id='_default') method=<Widget.on_enter>
+MouseMove(Button(id='add-btn'), x=14, y=2, delta_x=-4, delta_y=-1, screen_x=15, screen_y=4) >>> Screen(id='_default') method=None
+Update(Button(id='add-btn')) >>> Screen(id='_default') method=<Screen.on_update>
+Enter() >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(Button(id='add-btn'), x=14, y=2, delta_x=-4, delta_y=-1, screen_x=15, screen_y=4) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+InvokeLater(callback=functools.partial(<function App._update_mouse_over.<locals>.check_mouse at 0x118aab9c0>)) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=<MessagePump.on_invoke_later>
+MouseMove(Button(id='add-btn'), x=5, y=2, delta_x=-9, screen_x=6, screen_y=4) >>> Button(id='add-btn') method=None
+MouseMove(Button(id='add-btn'), x=5, y=2, delta_x=-9, screen_x=6, screen_y=4) >>> Screen(id='_default') method=None
+MouseMove(Button(id='add-btn'), x=5, y=2, delta_x=-9, screen_x=6, screen_y=4) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+Update(Tooltip(id='textual-tooltip')) >>> Screen(id='_default') method=<Screen.on_update>
+Layout() >>> Screen(id='_default') method=<Screen.on_layout>
+InvokeLater(callback=functools.partial(<function App._update_mouse_over.<locals>.check_mouse at 0x118a0e840>)) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=<MessagePump.on_invoke_later>
+Leave() >>> Button(id='add-btn') method=<Widget.on_leave>
+Enter() >>> VerticalScroll() method=<Widget.on_enter>
+MouseMove(VerticalScroll(), x=36, y=11, delta_x=30, delta_y=13, screen_y=17) >>> VerticalScroll() method=None
+Leave() >>> Screen(id='_default') method=<Widget.on_leave>
+Update(Button(id='add-btn')) >>> Screen(id='_default') method=<Screen.on_update>
+Enter() >>> Screen(id='_default') method=<Widget.on_enter>
+MouseMove(VerticalScroll(), x=36, y=11, delta_x=30, delta_y=13, screen_y=17) >>> Screen(id='_default') method=None
+Leave() >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+Enter() >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+MouseMove(VerticalScroll(), x=36, y=11, delta_x=30, delta_y=13, screen_y=17) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
+InvokeLater(callback=functools.partial(<function App._update_mouse_over.<locals>.check_mouse at 0x118aabec0>)) >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=<MessagePump.on_invoke_later>
+ExitApp() >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=<App.on_exit_app>
+Prune() >>> Screen(id='_default') method=<Widget.on_prune>
+Prune() >>> Header() method=<Widget.on_prune>
+Prune() >>> Button(id='add-btn') method=<Widget.on_prune>
+Unmount() >>> Button(id='add-btn') method=<Widget.on_unmount>
+Prune() >>> VerticalScroll() method=<Widget.on_prune>
+Unmount() >>> VerticalScroll() method=<Widget.on_unmount>
+Prune() >>> ToastRack(id='textual-toastrack') method=<Widget.on_prune>
+Prune() >>> Tooltip(id='textual-tooltip') method=<Widget.on_prune>
+Unmount() >>> Tooltip(id='textual-tooltip') method=<Widget.on_unmount>
+Prune() >>> HeaderIcon() method=<Widget.on_prune>
+Unmount() >>> HeaderIcon() method=<Widget.on_unmount>
+Prune() >>> HeaderTitle() method=<Widget.on_prune>
+Unmount() >>> HeaderTitle() method=<Widget.on_unmount>
+Prune() >>> HeaderClockSpace() method=<Widget.on_prune>
+Unmount() >>> HeaderClockSpace() method=<Widget.on_unmount>
+Prune() >>> ScrollBar(name='vertical', window_virtual_size=100, window_size=0, position=0, thickness=2) method=<Widget.on_prune>
+Unmount() >>> ScrollBar(name='vertical', window_virtual_size=100, window_size=0, position=0, thickness=2) method=<Widget.on_unmount>
+Unmount() >>> Header() method=<Widget.on_unmount>
+Unmount() >>> ToastRack(id='textual-toastrack') method=<Widget.on_unmount>
+Unmount() >>> Screen(id='_default') method=<Widget.on_unmount>
+Unmount() >>> ScrollTest(title='ScrollTest', classes={'-dark-mode'}, pseudo_classes={'dark', 'blur'}) method=None
