@@ -32,10 +32,11 @@ Chat > VerticalScroll {
 ChatInputArea {
   color: white;
   height: auto;
+  overflow-y: scroll;
 }
 #chat-input-text-container {
   height: auto;
-  width: 100%
+  width: 100%;
 }
 
 
@@ -48,6 +49,7 @@ ChatInputArea {
     height: auto;
     min-height: 3;
     padding: 1 2;
+    overflow-y: scroll;
 }
 
 #chat-input {

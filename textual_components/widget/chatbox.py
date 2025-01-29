@@ -42,17 +42,22 @@ class Chatbox(Static, can_focus=True):  # Change Widget to Static
 
     def __init__(self, content: str, is_ai: bool = False):
         super().__init__(content)  # Pass content to Static
-        self.content = content if content else "Empty Message"
+        self.content = content
         self.is_ai = is_ai
+        self.styles.height = "auto"
+        self.styles.width = "100%"
+        self.update_content(content)
 
     @property
     def is_ai_message(self) -> bool:
         return self.is_ai
 
+
     def on_mount(self) -> None:
         if self.is_ai:
             self.add_class("assistant-message")
-        self.update(self.content)
+        self.styles.height = "auto"
+        self.styles.width = 'auto'
 
     def get_code_blocks(self, markdown_string):
         pattern = r"```(.*?)\n(.*?)```"
@@ -76,15 +81,20 @@ class Chatbox(Static, can_focus=True):  # Change Widget to Static
 
     @property
     def markdown(self) -> Markdown:
-        return Markdown(self.content or "PLACEHOLDER")
+        return Markdown(self.content)
 
     def render(self) -> RenderableType:
         return self.markdown
 
 
     def get_content_height(self, container, viewport, width) -> int:
-            lines = self.content.split('\n')
+            lines = str(self.content).split('\n')
             return max(3, len(lines))  # At least 3 lines high
 
     def get_content_width(self, container, viewport) -> int:
         return container.width if container else 80  # Default width if no container
+
+    def update_content(self, content):
+        self.content = "".join(content)
+        from_ = "shelly:\n" if self.is_ai else "you:\n"
+        self.update(Markdown(f"{from_}{self.content})"))

@@ -47,7 +47,7 @@ class SimpleChat:
             raise ValueError("GROQ_API_KEY environment variable is not set")
 
         self.llm = ChatGroq(
-            model="llama-3.3-70b-versatile",
+            model="deepseek-r1-distill-llama-70b",
             api_key= SecretStr(api_key),
             temperature=0,
             stop_sequences=None)
@@ -106,7 +106,7 @@ class SimpleChat:
         try:
             lines = state["current_input"].splitlines()
             processed_input = self.process_commands(lines, state)
-            context, context_metadata = self.knowledge_base.vector_store.query(state["current_input"], filter=None)
+            context, context_metadata = self.knowledge_base.vector_store.query(processed_input, filter=None)
             # Extract the page_content from the context Documents
             context_text = ""
             if context:
@@ -162,6 +162,52 @@ class SimpleChat:
             state["should_end"] = True
             return state
 
+
+    async def stream_process_input(self, state: SimpleState, chatbox) -> SimpleState:
+        try:
+            lines = state['current_input'].splitlines()
+            processed_input = self.process_commands(lines, state)
+            context, context_metadata = self.knowledge_base.vector_store.query(processed_input, filter=None)
+            context_text = ""
+            if context:
+                context_text = "\n".join(doc.page_content for doc in context)
+            PROMPT_TEMPLATE = """
+            Thought process: {thinking_tokens} </think>
+            Question: {question}
+            Answer:
+            """
+            messages = self.prompt.format_messages(
+                input=PROMPT_TEMPLATE.format(thinking_tokens="", question=processed_input),
+                context=state["messages"],
+                knowledge_base_context=context_text
+            )
+
+            final_output_chunks = []
+            async for chunk in self.llm.astream(messages):
+                final_output_chunks.append(chunk.content)
+                chatbox.update_content(final_output_chunks)
+            final_output = "".join(final_output_chunks)
+
+            state["action_input"] = final_output
+            state["messages"].append({
+                "role": "user",
+                "content": state["current_input"]
+            })
+
+            state["messages"].append({
+                "role": "assistant",
+                "content": final_output
+            })
+
+            state["current_messages"] = messages
+            state["should_end"] = True
+
+            return state
+        except Exception as e:
+            print(f"Error in process_input: {str(e)}")  # Add this for debugging
+            state["action_output"] = f"Error processing input: {str(e)}"
+            state["should_end"] = True
+            return state
     def process_commands(self, lines, state):
         processed_lines = []
         for line in lines:
