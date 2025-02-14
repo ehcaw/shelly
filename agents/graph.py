@@ -17,6 +17,7 @@ from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 import re
+import asyncio
 from urllib.parse import urlparse, urljoin
 
 #vector store imports
@@ -149,7 +150,7 @@ class SimpleChat:
 
             state["messages"].append({
                 "role": "assistant",
-                "content": full_response
+                "content": str(full_response)
             })
 
             state["current_messages"] = messages
@@ -186,9 +187,10 @@ class SimpleChat:
             async for chunk in self.llm.astream(messages):
                 final_output_chunks.append(chunk.content)
                 chatbox.update_content(final_output_chunks)
-            final_output = "".join(final_output_chunks)
+                await asyncio.sleep(0)
 
-            state["action_input"] = final_output
+            final_output = "".join(final_output_chunks)
+            state["action_output"] = final_output
             state["messages"].append({
                 "role": "user",
                 "content": state["current_input"]

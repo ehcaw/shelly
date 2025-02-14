@@ -63,6 +63,11 @@ class Shelly(App):
         width: 100%;
     }
     """
+    BINDINGS = [
+        ("m", "maximise", "Maximise the focused widget"),
+        ("ctrl+t", "new_terminal", "New Terminal"),
+        ("ctrl+w", "close_terminal", "Close Terminal"),
+    ]
     def __init__(self):
         super().__init__()
         self.child_terminal = None
@@ -135,11 +140,6 @@ class Shelly(App):
         plt.title(f'Total Tokens: {self.total_token_usage}')
         token_plot.refresh()
 
-    BINDINGS = [
-        ("ctrl+t", "new_terminal", "New Terminal"),
-        ("ctrl+w", "close_terminal", "Close Terminal"),
-    ]
-
     def action_new_terminal(self):
         """Add a new terminal tab."""
         terminal_tabs = self.query_one(TabbedTerminals)
@@ -150,6 +150,10 @@ class Shelly(App):
         terminal_tabs = self.query_one(TabbedTerminals)
         terminal_tabs.action_close_terminal()
 
+    def action_maximise(self):
+        """Maximise the focused widget"""
+        focused_widget = self.focused
+        self.screen.maximize(focused_widget)
 
     def on_key(self, event) -> None:
             """Handle key events"""
@@ -436,12 +440,19 @@ class AlertWidget(Static):
 
 
 
+'''
 async def main():
     try:
         shelly = Shelly()
         await shelly.run_async()
     except Exception as e:
         print(f"Application error: {str(e)}")
+'''
+
+def main():
+    shelly = Shelly()
+    shelly.run()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    #asyncio.run(main())
+    main()

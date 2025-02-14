@@ -46,7 +46,11 @@ class Chatbox(Static, can_focus=True):  # Change Widget to Static
         self.is_ai = is_ai
         self.styles.height = "auto"
         self.styles.width = "100%"
+        self.styles.box_sizing = "border-box"
+        self.styles.overflow_y="scroll"
         self.update_content(content)
+        self.prefix_added = False
+        self.is_streaming = False
 
     @property
     def is_ai_message(self) -> bool:
@@ -81,20 +85,20 @@ class Chatbox(Static, can_focus=True):  # Change Widget to Static
 
     @property
     def markdown(self) -> Markdown:
+        print(self.content)
         return Markdown(self.content)
 
     def render(self) -> RenderableType:
         return self.markdown
 
-
     def get_content_height(self, container, viewport, width) -> int:
-            lines = str(self.content).split('\n')
-            return max(3, len(lines))  # At least 3 lines high
+        lines = str(self.content).split('\n')
+        return max(3, len(lines))  # At least 3 lines high
 
     def get_content_width(self, container, viewport) -> int:
-        return container.width if container else 80  # Default width if no container
+        return container.width  # Default width if no container
 
     def update_content(self, content):
-        self.content = "".join(content)
-        from_ = "shelly:\n" if self.is_ai else "you:\n"
-        self.update(Markdown(f"{from_}{self.content})"))
+        new_content = "".join(content)
+        self.content = new_content
+        self.refresh(layout=True)

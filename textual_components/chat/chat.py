@@ -8,7 +8,7 @@ from textual.message import Message
 from textual.reactive import var
 from textual import on, events, work
 from textual_autocomplete import AutoComplete, Dropdown, DropdownItem
-from
+from textual.worker import Worker
 import asyncio
 
 from langchain.schema import BaseMessage
@@ -179,7 +179,7 @@ class Chat(Widget):
                 animate=False
             )
 
-    @work
+
     async def chat(self, content: str):
         try:
             # Create user message box
@@ -191,8 +191,6 @@ class Chat(Widget):
 
             # Show typing indicator
             self.responding_indicator.display = True
-
-
             # Update state with user input
             self.state["messages"] = self.state["messages"] + [{
                 "role": "user",
@@ -212,13 +210,14 @@ class Chat(Widget):
                 #if self.debug_log:
                 #    self.debug_log.write(f"Processed state: {processed_state}\n")
                 await self.mount_chat_boxes([ai_box])
-                '''processed_state = self.graph.stream_process_input(self.state, ai_box)
+                #processed_state = self.graph.stream_process_input(self.state, ai_box)
                 async def stream_response():
                     response = []
                     async for chunk in self.llm.astream(self.state["current_input"]):
                         response.append(chunk.content)
                         ai_box.update_content(response)
-                '''
+                        self.scroll_to_latest_message()
+
                 self.run_worker(stream_response)
                 '''
                 if processed_state and "action_output" in processed_state:
@@ -246,8 +245,6 @@ class Chat(Widget):
                 import traceback
                 self.debug_log.write(traceback.format_exc())
 
-    def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
-
 
     async def mount_chat_boxes(self, boxes: list[Chatbox]):
         if self.debug_log:
@@ -262,6 +259,7 @@ class Chat(Widget):
             # Mount the container directly
             await self.chat_container.mount(container)
             await container.mount(box)
+
 
             # Force refresh
             self.chat_container.refresh(layout=True)

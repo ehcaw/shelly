@@ -21,7 +21,7 @@ Chat {
 
 Chat > VerticalScroll {
     border-left: $left-border-trim;
-    overflow-y: scroll;
+    overflow-y: auto;
     height: 1fr;
     width: 100%;
     padding: 1;
@@ -32,7 +32,7 @@ Chat > VerticalScroll {
 ChatInputArea {
   color: white;
   height: auto;
-  overflow-y: scroll;
+  overflow-y: auto;
 }
 #chat-input-text-container {
   height: auto;
@@ -109,13 +109,13 @@ IsTyping LoadingIndicator {
 ChatboxContainer {
   width: 100%;
   height: auto;
-  margin-bottom: 1;  /* Add space between messages */
   align: left top;
   padding-right: 20;
+  min-height: 1;
 }
 
 ChatboxContainer.assistant-message {
-  align: left top;
+  align: right top;
   padding-left: 20;
   padding-right: 0;
 }
@@ -124,9 +124,10 @@ Chatbox {
   color: $text;
   background: $main 50%;
   height: auto;
-  width: auto;
+  width: 100%;
   margin: 1 2;
   padding: 1 2;
+  box-sizing: border-box;
 }
 
 Chatbox:focus {
