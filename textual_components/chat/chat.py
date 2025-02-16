@@ -17,6 +17,7 @@ from ..widget.chatbox import Chatbox, ChatboxContainer
 from ..widget.file_search import FileSearcher
 from ..display.chat_header import ChatHeader
 from ..display.typing_indicator import IsTyping
+from ..widget.chat_history import ChatHistory
 
 from pathlib import Path
 
@@ -88,6 +89,9 @@ class Chat(Widget):
         scroll = VerticalScroll(
                 id="chat-scroll-container",)
         self.chat_container = scroll # Get the VerticalScroll widget
+        chat_history = ChatHistory()
+        self.chat_history = chat_history
+        yield chat_history
         yield scroll
 
     def on_mount(self) -> None:
