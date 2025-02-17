@@ -1,6 +1,6 @@
-from dataclasses import dataclass
 from textual.widget import Widget
-from textual.widgets import TextArea, Button, RichLog, Input
+from textual.widgets import TextArea, Button, RichLog, Input, OptionList
+from textual.widgets.option_list import Option
 from textual.app import ComposeResult
 from textual.containers import ScrollableContainer, Vertical, Horizontal, VerticalScroll, Container
 from textual.binding import Binding
@@ -8,8 +8,8 @@ from textual.message import Message
 from textual.reactive import var
 from textual import on, events, work
 from textual_autocomplete import AutoComplete, Dropdown, DropdownItem
-from textual.worker import Worker
-import asyncio
+from textual.worker import Worker, WorkerState
+
 
 from langchain.schema import BaseMessage
 
@@ -17,9 +17,12 @@ from ..widget.chatbox import Chatbox, ChatboxContainer
 from ..widget.file_search import FileSearcher
 from ..display.chat_header import ChatHeader
 from ..display.typing_indicator import IsTyping
-from ..widget.chat_history import ChatHistory
+from ..widget.chat_history import ChatHistory, MessageClass
 
 from pathlib import Path
+from datetime import datetime
+from shortuuid import uuid
+from dataclasses import dataclass
 
 
 class ChatInputArea(TextArea):
@@ -76,23 +79,53 @@ class Chat(Widget):
         # Initialize debug output
         self.debug_log = None
 
+
+
     allow_input_submit = var(True)
     """Used to lock the chat input while the agent is responding."""
 
+    @property
+    def current_chat_id(self):
+        if self.chat_history is None:
+            return None
+        return self.chat_history.current_chat_id
+    @current_chat_id.setter
+    def current_chat_id(self, value):
+        if self.chat_history is not None:
+            self.chat_history.current_chat_id = value
+
+    @property
+    def is_new_chat(self):
+        if self.chat_history is None:
+            return None
+        return self.chat_history.is_new_chat
+    @is_new_chat.setter
+    def is_new_chat(self, value):
+        if self.chat_history is not None:
+            self.chat_history.is_new_chat = value
+
+
     def compose(self) -> ComposeResult:
-        #yield ChatHeader()
-        with Vertical(id="chat-input-container"):
-            with Horizontal(id="chat-input-text-container"):
-                yield self.input_area
-                yield Button("Send", id="btn-submit")
-                yield self.responding_indicator
-        scroll = VerticalScroll(
-                id="chat-scroll-container",)
-        self.chat_container = scroll # Get the VerticalScroll widget
-        chat_history = ChatHistory()
-        self.chat_history = chat_history
-        yield chat_history
-        yield scroll
+        with Horizontal(id="chat-app"):
+            # Left sidebar
+            with Vertical(id="sidebar"):
+                chat_history = ChatHistory()
+                self.chat_history = chat_history
+                yield chat_history
+
+            # Main chat area
+            with Vertical(id="main-chat-area"):
+                # Chat messages scroll area
+                scroll = VerticalScroll(id="chat-scroll-container")
+                self.chat_container = scroll
+                yield scroll
+
+                # Input area at bottom
+                with Vertical(id="chat-input-container"):
+                    with Horizontal(id="chat-input-text-container"):
+                        yield self.input_area
+                        yield Button("Send", id="btn-submit")
+                        yield self.responding_indicator
 
     def on_mount(self) -> None:
         # Ensure textual-autocomplete layer exists
@@ -155,6 +188,36 @@ class Chat(Widget):
         self.input_area.post_message(ChatInputArea.Submit(self.input_area))
         self._debug_widget_tree(self, 0)
 
+    @on(ChatHistory.ChatOpened)
+    async def on_chat_opened(self, message: ChatHistory.ChatOpened) -> None:
+        if self.chat_container:
+            self.chat_container.remove_children()
+        messages = self.chat_history.load_conversation(message.chat_id)
+        chatboxes = []
+        assert self.debug_log
+        self.debug_log.write('chat opened')
+        self.debug_log.write(messages)
+        for msg in messages:
+            chatbox = Chatbox(msg.content, is_ai=(msg._from == "ai"))
+            chatboxes.append(chatbox)
+        await self.mount_chat_boxes(chatboxes)
+        self.is_new_chat = False
+
+    @on(Button.Pressed, selector="#cl-new-chat-button")
+    def on_new_chat(self) -> None:
+        """Handle new chat button press."""
+        # Clear current chat container
+        if self.chat_container:
+            self.chat_container.remove_children()
+
+        # Create new conversation
+        self.is_new_chat = True
+        # Refresh the option list
+        option_list = self.query_one("#cl-option-list", OptionList)
+        option_list.clear_options()
+        options = self.chat_history._load_conversations()
+        option_list.add_options([Option(data["chat_name"], id=conv_id) for conv_id, data in options.items()])
+
     @dataclass
     class MessageSubmitted(Message):
         chat_id: str
@@ -183,15 +246,32 @@ class Chat(Widget):
                 animate=False
             )
 
-
     async def chat(self, content: str):
         try:
             # Create user message box
             if self.debug_log:
                 self.debug_log.write("Creating user message\n")
+            #Check if this is a new chat and create one
+            if self.is_new_chat:
+                self.chat_history.add_conversation(content)
+                self.is_new_chat = False
+                #self.chat_history.refresh(layout=True)
+                option_list = self.chat_history.query_one(OptionList)
+                option_list.clear_options()
+                updated_options = self.chat_history._load_conversations()
+                option_list.add_options([Option(data["chat_name"], id=conv_id) for conv_id, data in updated_options.items()])
+
             user_box = Chatbox(content)
             assert self.chat_container is not None
             await self.mount_chat_boxes([user_box])
+
+            user_message = MessageClass(
+                _from="user",
+                content=content,
+                timestamp = str(datetime.now())
+            )
+            if self.chat_history.current_chat_id:
+                self.chat_history.update_conversation_single(self.chat_history.current_chat_id, user_message)
 
             # Show typing indicator
             self.responding_indicator.display = True
@@ -209,29 +289,15 @@ class Chat(Widget):
             ai_box = Chatbox("", is_ai=True)
 
             try:
-                # Try direct process_input first
-                #processed_state = self.graph.process_input(self.state)
-                #if self.debug_log:
-                #    self.debug_log.write(f"Processed state: {processed_state}\n")
                 await self.mount_chat_boxes([ai_box])
-                #processed_state = self.graph.stream_process_input(self.state, ai_box)
+                response = []
                 async def stream_response():
-                    response = []
                     async for chunk in self.llm.astream(self.state["current_input"]):
                         response.append(chunk.content)
                         ai_box.update_content(response)
                         self.scroll_to_latest_message()
-
+                    return "".join(response)
                 self.run_worker(stream_response)
-                '''
-                if processed_state and "action_output" in processed_state:
-                    ai_box.content = str(processed_state["action_output"])
-                    ai_box.refresh()
-                    self.scroll_to_latest_message()
-                    await self.mount_chat_boxes([ai_box])
-                '''
-
-
             except Exception as e:
                 if self.debug_log:
                     self.debug_log.write(f"Error in process_input: {str(e)}\n")
@@ -249,6 +315,14 @@ class Chat(Widget):
                 import traceback
                 self.debug_log.write(traceback.format_exc())
 
+    def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
+        if event.worker.state == WorkerState.SUCCESS:
+            response = event.worker.result
+            if self.chat_history.current_chat_id:
+                ai_message = MessageClass(_from="ai", content=str(response), timestamp=str(datetime.now()))
+                self.chat_history.update_conversation_single(self.chat_history.current_chat_id, ai_message)
+
+
 
     async def mount_chat_boxes(self, boxes: list[Chatbox]):
         if self.debug_log:
@@ -259,11 +333,9 @@ class Chat(Widget):
             # Create a simple container with the content
             container = ChatboxContainer()
 
-
             # Mount the container directly
             await self.chat_container.mount(container)
             await container.mount(box)
-
 
             # Force refresh
             self.chat_container.refresh(layout=True)

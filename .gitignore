@@ -15,3 +15,5 @@ shelly-config.toml
 /chroma
 
 textual.log
+
+/conversations

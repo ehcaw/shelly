@@ -43,10 +43,12 @@ class ChatHistory(Widget):
 
     def __init__(self):
         super().__init__()
-        self.index_path = "conversations/index.json"
-        self.conversation_path = "conversations"
+        self.index_path = "./conversations/index.json"
+        self.conversation_path = "./conversations"
         self.current_chat_id = ""
+        self.is_new_chat = True
         self.index = self._load_index()
+        self.options = self._load_conversations()
 
     @dataclass
     class ChatOpened(Message):
@@ -59,22 +61,16 @@ class ChatHistory(Widget):
             with Vertical(id="cl-header-container"):
                 yield Static(
                     Text(
+                        "Chat History",
                     )
                 )
-                yield Static(
-                    Text(
-                        "LLMs in the Terminal",
-                    )
+                option_list = OptionList(
+                    *[Option(data["chat_name"], id=conv_id) for conv_id, data in self.options.items()],
+                    id="cl-option-list",
                 )
+                yield option_list
 
-            self.options = self._load_conversations()
-            option_list = OptionList(
-                *self.options,
-                id="cl-option-list",
-            )
-            yield option_list
-
-            with Horizontal(id="cl-button-container"):
+           # with Horizontal(id="cl-button-container"):
                 yield Button("New Chat", id="cl-new-chat-button")
 
     def _load_conversations(self):
@@ -91,6 +87,16 @@ class ChatHistory(Widget):
             return index
         index = dict()
         return index
+
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        conversation_id = event.option.id
+        self.current_chat_id = conversation_id
+        print("HELLO BAKA")
+        print(conversation_id)
+        if conversation_id in self.index:
+            self.current_chat_id = conversation_id
+            # Post a message that will be handled by the Chat widget
+            self.post_message(self.ChatOpened(conversation_id))
 
     def action_delete_conversation(self):
         if self.current_chat_id:
@@ -109,6 +115,7 @@ class ChatHistory(Widget):
             footer.command = Command("Delete this Chat?", fields, delete_chat)
             self.screen.set_focus(footer)
 
+    # REDO THIS METHOD THIS IS SHIT
     def delete_conversation(self, conversation_id: str) -> bool:
         index = None
         if Path(self.index_path).exists():
@@ -117,7 +124,7 @@ class ChatHistory(Widget):
         if conversation_id not in self.index:
             return False
 
-        file_path = Path(self.index[conversation_id].path)
+        file_path = Path(self.index[conversation_id]["path"])
         try:
             file_path.unlink()
         except FileNotFoundError:
@@ -144,29 +151,47 @@ class ChatHistory(Widget):
         return True
 
     def add_conversation(self, name: str | None) -> bool:
-        conv_id = uuid()
-        if not name:
-            name = str(datetime.now())
-        index = None
-        if Path(self.index_path).exists():
-            with open(self.index_path, 'r') as f:
-                index = json.load(f)
-            f.close()
-        if not index:
+        try:
+            conv_id = uuid()
+            if not name:
+                name = str(datetime.now())
+            index = None
+            if Path(self.index_path).exists():
+                with open(self.index_path, 'r') as f:
+                    index = json.load(f)
+                f.close()
+            else:
+                index = {}
+            conv_file_path = Path(self.conversation_path) / f"{conv_id}.json"
+            path = Path(self.conversation_path + f"/{conv_id}.json")
+            index[conv_id] = {"path": str(path), "chat_name": name, "timestamp": str(datetime.now())} #ConversationIndex(str(path), str(name), str(datetime.now()))
+            new_conversation = {
+                "id": conv_id,
+                "name": name,
+                "timestamp": str(datetime.now()),
+                "messages": []  # Initialize empty messages list
+            }
+            # Write the new conversation file
+            with open(conv_file_path, 'w') as f:
+                json.dump(new_conversation, f, indent=4)
+            with open(self.index_path, 'w') as f:
+                json.dump(index, f, indent=4)
+            self.index = index
+            self.refresh()
+            self.current_chat_id = conv_id
+            return True
+        except Exception:
             return False
-        path = Path(self.conversation_path + f"/{conv_id}")
-        index["conversations"].append(ConversationIndex(str(path), str(name), str(datetime.now())))
-        return True
 
     def update_conversation_single(self, conversation_id: str, message: MessageClass) -> bool:
         conversation_index = self.index[conversation_id]
         if not conversation_index:
             return False
-        file_path = conversation_index.path
+        file_path = conversation_index["path"]
         with open(file_path, 'r') as f:
             jsoned = json.load(f)
             f.close()
-        jsoned.messages.append(message)
+        jsoned["messages"].append({"_from": message._from, "content": message.content, "timestamp": message.timestamp})
         with open(file_path, 'w') as fr:
             json.dump(jsoned, fr, indent=4)
             fr.close()
@@ -176,12 +201,24 @@ class ChatHistory(Widget):
         conversation_index = self.index[conversation_id]
         if not conversation_index:
             return False
-        file_path = conversation_index.path
+        file_path = conversation_index["path"]
         with open(file_path, 'r') as f:
             jsoned = json.load(f)
             f.close()
-        jsoned.messages = messages
+        jsoned["messages"] = [{"_from": message._from, "content": message.content, "timestamp": message.timestamp} for message in messages]
         with open(file_path, 'w') as fr:
             json.dump(jsoned, fr, indent=4)
             fr.close()
         return True
+
+    def load_conversation(self, conversation_id: str):
+        conversation_index = self.index[conversation_id]
+        if not conversation_index: return {}
+        file_path = Path(conversation_index["path"])
+        try:
+            with open(file_path, 'r') as f:
+                contents = json.load(f)
+                return [MessageClass(**msg) for msg in contents["messages"]]
+        except Exception as e:
+            print('conversation not found')
+            return []
