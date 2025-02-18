@@ -1,6 +1,6 @@
 from typing import Dict, List, TypedDict, Optional, Any, Set, Tuple
 from langgraph.graph import StateGraph, END
-from pydantic import BaseModel, SecretStr
+from pydantic import SecretStr
 from shelly_types.types import CustomRichLog
 from shelly_types.utils import find_file
 from shelly_types.ollama_embedding import OllamaEmbedding
@@ -25,7 +25,6 @@ import chromadb
 from langchain_chroma import Chroma
 from uuid import uuid4
 from langchain_core.documents import Document
-from langchain_openai.chat_models.base import BaseChatOpenAI
 from openai import OpenAI
 
 load_dotenv()

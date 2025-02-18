@@ -101,16 +101,6 @@ ChatHeader Vertical {
     margin-left: 1;
 }
 
-#chat-scroll-container {
-    height: 1fr;
-    width: 100%;
-}
-
-#chat-input-container {
-    dock: bottom;
-    height: auto;
-    padding: 1;
-}
 
 #chat-input-text-container {
     height: auto;

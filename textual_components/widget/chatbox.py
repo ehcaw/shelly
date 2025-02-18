@@ -1,23 +1,16 @@
 from __future__ import annotations
 
 import re
-from langchain.schema import BaseMessage, AIMessage
-
 import pyperclip
 
 from rich.console import RenderableType
 from rich.markdown import Markdown
 from textual.binding import Binding
-from textual.geometry import Size
-from textual.widget import Widget
 from textual.containers import Container
-from rich.text import Text
 from textual.widgets import Static
-
 
 class ChatboxContainer(Container):
     ...
-
 
 class Chatbox(Static, can_focus=True):  # Change Widget to Static
     BINDINGS = [
@@ -42,12 +35,13 @@ class Chatbox(Static, can_focus=True):  # Change Widget to Static
 
     def __init__(self, content: str, is_ai: bool = False):
         super().__init__(content)  # Pass content to Static
-        self.content = content
         self.is_ai = is_ai
+        self.content = content
         self.styles.height = "auto"
         self.styles.width = "100%"
         self.styles.box_sizing = "border-box"
         self.styles.overflow_y="scroll"
+        self.current_length = len(content)
         self.update_content(content)
         self.prefix_added = False
         self.is_streaming = False
@@ -101,4 +95,5 @@ class Chatbox(Static, can_focus=True):  # Change Widget to Static
     def update_content(self, content):
         new_content = "".join(content)
         self.content = new_content
+        self.current_length = len(new_content)
         self.refresh(layout=True)

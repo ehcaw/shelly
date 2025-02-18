@@ -7,31 +7,24 @@ import os
 import asyncio
 from dotenv import load_dotenv
 from textual.widgets import RichLog, TextArea, Header, SelectionList
-from textual.widgets.selection_list import Selection
 from textual.containers import Vertical, Grid, ScrollableContainer, Container
 from textual_plotext import PlotextPlot
 from textual_components.token_usage_logger import TokenUsagePlot
 from textual_components.terminal_widget import PtyTerminal, TabbedTerminals
 from textual.message import Message
 from textual.widgets import Static
-from textual.events import Mount
 import plotext as plt
 from dataclasses import dataclass
-from typing import Callable, Dict
+from typing import Callable
 #from langchain.callbacks import BaseCallbackHandler
 from pathlib import Path
 import fnmatch
-import asyncio
 from functools import lru_cache
-from textual import on
 from shelly_types.types import CustomRichLog
 from functools import wraps
 import time
-# New Chat Components
+
 from textual_components.chat.chat import Chat
-from textual_components.widget.chatbox import Chatbox
-from textual_components.display.chat_header import ChatHeader
-from textual_components.display.typing_indicator import IsTyping
 
 
 load_dotenv()
@@ -67,12 +60,11 @@ class Shelly(App):
         ("m", "maximise", "Maximise the focused widget"),
         ("ctrl+t", "new_terminal", "New Terminal"),
         ("ctrl+w", "close_terminal", "Close Terminal"),
+        ("super+r", "refresh_screen", "Refresh Screen")
     ]
     def __init__(self):
         super().__init__()
         self.child_terminal = None
-        #self.zapper = Zap()
-        #self.zapper = Splatter()
         self.zapper = SimpleChat()
         api_key = os.getenv('GROQ_API_KEY')
         if not api_key:
@@ -114,9 +106,7 @@ class Shelly(App):
             # Left side - Chat component
             with Vertical(id="left_panel"):
                 yield Chat(
-                    llm=self.versatile_llm,
-                    graph=self.zapper,
-                    state=self.zapper.state
+                    app=self
                 )
 
             # Right side - Your existing components
@@ -153,7 +143,11 @@ class Shelly(App):
     def action_maximise(self):
         """Maximise the focused widget"""
         focused_widget = self.focused
+        assert focused_widget
         self.screen.maximize(focused_widget)
+
+    def action_refresh_screen(self):
+        self.refresh(layout=True)
 
     def on_key(self, event) -> None:
             """Handle key events"""

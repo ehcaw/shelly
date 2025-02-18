@@ -7,6 +7,7 @@ from textual.binding import Binding
 from textual.message import Message
 from textual.reactive import var
 from textual import on, events, work
+from textual.events import Key
 from textual_autocomplete import AutoComplete, Dropdown, DropdownItem
 from textual.worker import Worker, WorkerState
 
@@ -21,7 +22,6 @@ from ..widget.chat_history import ChatHistory, MessageClass
 
 from pathlib import Path
 from datetime import datetime
-from shortuuid import uuid
 from dataclasses import dataclass
 
 
@@ -65,11 +65,9 @@ class ChatInputArea(TextArea):
 class Chat(Widget):
     CSS_PATH = "styling.tcss"
 
-    def __init__(self, llm, graph, state):
+    def __init__(self, app):
         super().__init__()
-        self.llm = llm
-        self.graph = graph
-        self.state = state
+        self._app = app
         self.chat_container: ScrollableContainer | None = None
         self.input_area = ChatInputArea(self, id="chat-input", classes="multiline")
         self.responding_indicator = IsTyping()
@@ -83,6 +81,27 @@ class Chat(Widget):
 
     allow_input_submit = var(True)
     """Used to lock the chat input while the agent is responding."""
+
+    @property
+    def llm(self):
+        return self._app.versatile_llm
+    @llm.setter
+    def llm(self, value):
+        self._app_versatile_llm = value
+
+    @property
+    def graph(self):
+        return self._app.zapper
+    @graph.setter
+    def graph(self, value):
+        self._app.zapper = value
+
+    @property
+    def state(self):
+        return self._app.zapper.state
+    @state.setter
+    def state(self, value):
+        self._app.zapper.state = value
 
     @property
     def current_chat_id(self):
@@ -104,8 +123,9 @@ class Chat(Widget):
         if self.chat_history is not None:
             self.chat_history.is_new_chat = value
 
-
     def compose(self) -> ComposeResult:
+        self.chat_header = ChatHeader(self)
+        yield self.chat_header
         with Horizontal(id="chat-app"):
             # Left sidebar
             with Vertical(id="sidebar"):
@@ -116,16 +136,15 @@ class Chat(Widget):
             # Main chat area
             with Vertical(id="main-chat-area"):
                 # Chat messages scroll area
-                scroll = VerticalScroll(id="chat-scroll-container")
-                self.chat_container = scroll
-                yield scroll
-
-                # Input area at bottom
+                #
                 with Vertical(id="chat-input-container"):
                     with Horizontal(id="chat-input-text-container"):
                         yield self.input_area
                         yield Button("Send", id="btn-submit")
                         yield self.responding_indicator
+                scroll = VerticalScroll(id="chat-scroll-container")
+                self.chat_container = scroll
+                yield scroll
 
     def on_mount(self) -> None:
         # Ensure textual-autocomplete layer exists
@@ -181,6 +200,7 @@ class Chat(Widget):
             if len(user_message):
                 event.input_area.clear()
                 await self.chat(user_message)
+
 
     @on(Button.Pressed, selector='#btn-submit')
     def on_submit(self, event: Button.Pressed):

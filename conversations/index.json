@@ -1,27 +1,22 @@
 {
-    "abc123": {
-        "path": "./conversations/abc123.json",
-        "chat_name": "Chat about Python",
-        "timestamp": "2024-02-20T10:00:00"
+    "GrTKjJLyTrazcgdX8vatQd": {
+        "path": "conversations/GrTKjJLyTrazcgdX8vatQd.json",
+        "chat_name": "balanced binary trees",
+        "timestamp": "2025-02-17 12:32:07.842953"
     },
-    "def456": {
-        "path": "./conversations/def456.json",
-        "chat_name": "Discussion about AI",
-        "timestamp": "2024-02-20T11:00:00"
+    "GgFiRJWmFkmQjqRKdYgxjx": {
+        "path": "conversations/GgFiRJWmFkmQjqRKdYgxjx.json",
+        "chat_name": "asdfasdfasdf",
+        "timestamp": "2025-02-17 15:25:39.250947"
     },
-    "LuGtPvYpCuEjraFFcau95v": {
-        "path": "conversations/LuGtPvYpCuEjraFFcau95v.json",
-        "chat_name": "hello",
-        "timestamp": "2025-02-17 10:23:38.220134"
+    "8onHKYcgrGTsSKv5Uxf72v": {
+        "path": "conversations/8onHKYcgrGTsSKv5Uxf72v.json",
+        "chat_name": "what is deterministic finite automata??? ",
+        "timestamp": "2025-02-17 16:37:27.298251"
     },
-    "32GDC7aMFrrxpuEhyZBk6A": {
-        "path": "conversations/32GDC7aMFrrxpuEhyZBk6A.json",
-        "chat_name": "hello ",
-        "timestamp": "2025-02-17 10:25:25.430920"
-    },
-    "hLjR6qYULdHHa54VK599mL": {
-        "path": "conversations/hLjR6qYULdHHa54VK599mL.json",
-        "chat_name": "what is graham scan",
-        "timestamp": "2025-02-17 10:26:10.633850"
+    "YT34vvdQ9nzFgfHX7X5vJz": {
+        "path": "conversations/YT34vvdQ9nzFgfHX7X5vJz.json",
+        "chat_name": "hey whta model are you ",
+        "timestamp": "2025-02-17 23:31:41.449702"
     }
 }

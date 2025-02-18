@@ -2,16 +2,15 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import Dict, Literal, List
 
-from rich.console import Console
 from rich.text import Text
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.binding import Binding
 from textual.reactive import var
 from textual.widget import Widget
 from textual.widgets import Button, OptionList, Static
-from textual.widgets.option_list import Option, Separator
+from textual.widgets.option_list import Option
+from textual.containers import Vertical, Horizontal
 from pathlib import Path
 from shortuuid import uuid
 
