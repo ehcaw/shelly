@@ -27,6 +27,7 @@ from ..widget.chat_history import ChatHistory, MessageClass
 from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass
+import asyncio
 
 
 class ChatInputArea(TextArea):
@@ -83,8 +84,9 @@ class Chat(Widget):
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", "You are a helpful AI assistant. Provide clear and concise responses for the user's requests. Use a combination of your own knowledge and the context, with more emphasis on using the context."),
             ("user", "{input}"),
-            ("user", "Here are previous messages you should use for context: {context}"),
+            #("user", "Here are previous messages you should use for context: {context}"),
         ])
+        self.configure_llm()
 
 
 
@@ -92,11 +94,12 @@ class Chat(Widget):
     """Used to lock the chat input while the agent is responding."""
 
     @property
-    def llm(self):
+    def llm_instance(self):
         return self._app.versatile_llm
-    @llm.setter
-    def llm(self, value):
+    @llm_instance.setter
+    def llm_instance(self, value):
         self._app_versatile_llm = value
+
 
     @property
     def context(self):
@@ -143,8 +146,8 @@ class Chat(Widget):
                 "embed": "ollama:nomic-embed-text"
             }
         )
-        self.agent = create_react_agent(
-            model=self.llm,
+        self.llm = create_react_agent(
+            model=self.llm_instance,
             tools=[
                 create_manage_memory_tool(namespace=("memories",)),
                 create_search_memory_tool(namespace=("memories",)),
@@ -153,12 +156,13 @@ class Chat(Widget):
         )
 
 
+
     def compose(self) -> ComposeResult:
-        self.chat_header = ChatHeader(self)
-        yield self.chat_header
         with Horizontal(id="chat-app"):
             # Left sidebar
             with Vertical(id="sidebar"):
+                self.chat_header = ChatHeader(self)
+                yield self.chat_header
                 chat_history = ChatHistory()
                 self.chat_history = chat_history
                 yield chat_history
@@ -290,11 +294,15 @@ class Chat(Widget):
     def scroll_to_latest_message(self):
         if self.chat_container is not None:
             # Calculate scroll position accounting for input area height
-            input_height = self.query_one("#chat-input-container").outer_size.height
-            self.chat_container.scroll_to(
-                y=self.chat_container.virtual_size.height - input_height,
-                animate=False
-            )
+            total_content_height = self.chat_container.virtual_size.height
+            visible_height = self.chat_container.size.height
+
+            # Calculate maximum scroll position
+            max_scroll = max(0, total_content_height - visible_height)
+
+            # Force scroll to bottom
+            self.chat_container.scroll_to(y=max_scroll, animate=False)
+            self.chat_container.refresh(layout=True)
 
     async def chat(self, content: str):
         try:
@@ -330,7 +338,7 @@ class Chat(Widget):
                 "role": "user",
                 "content": content
             }]
-            self._app.zapper.add_user_input_to_summaries(content)
+            #self._app.zapper.add_user_input_to_summaries(content)
 
             self.state["current_input"] = content
             self.state["should_end"] = False
@@ -338,13 +346,14 @@ class Chat(Widget):
             # Process through graph
             if self.debug_log:
                 self.debug_log.write("Processing through graph\n")
+            '''
             ai_box = Chatbox("", is_ai=True)
 
             try:
                 await self.mount_chat_boxes([ai_box])
                 response = []
                 async def stream_response():
-                    prompt = self.prompt.format_messages(input=self.state["current_input"], context=self._app.zapper.state["summaries"])
+                    prompt = self.prompt.format_messages(input=self.state["current_input"])
                     async for chunk in self.llm.astream(prompt):
                         response.append(chunk.content)
                         ai_box.update_content(response)
@@ -352,6 +361,27 @@ class Chat(Widget):
 
                     return "".join(response)
                 self.run_worker(stream_response)
+                '''
+            try:
+                ai_box = Chatbox("", is_ai=True)
+                await self.mount_chat_boxes([ai_box])
+                response = []
+                async def stream_response():
+                    prompt = self.prompt.format_messages(input=self.state["current_input"])
+                    async for chunk in self.llm.astream(prompt):
+                        response.append(chunk.content)
+                        ai_box.update_content(response)
+                        await asyncio.sleep(0.01)
+                        ai_box.refresh(layout=True)
+                        self.chat_container.refresh(layout=True)
+                        self.scroll_to_latest_message()
+                    await asyncio.sleep(0.05)  # Slightly longer delay for final update
+                    ai_box.refresh(layout=True)
+                    self.chat_container.refresh(layout=True)
+                    self.scroll_to_latest_message()
+                    return "".join(response)
+                self.run_worker(stream_response)
+
             except Exception as e:
                 if self.debug_log:
                     self.debug_log.write(f"Error in process_input: {str(e)}\n")
@@ -359,7 +389,6 @@ class Chat(Widget):
 
             if self.debug_log:
                 self.debug_log.write(f"{self.state['messages']}\n")
-            ai_box.refresh()
             self.scroll_to_latest_message()
             self.responding_indicator.display = False
 
@@ -375,7 +404,7 @@ class Chat(Widget):
             if self.chat_history.current_chat_id:
                 ai_message = MessageClass(_from="ai", content=str(response), timestamp=str(datetime.now()))
                 self.chat_history.update_conversation_single(self.chat_history.current_chat_id, ai_message)
-                self._app.zapper.summarize_message(str(response))
+                #self._app.zapper.summarize_message(str(response))
 
 
     async def mount_chat_boxes(self, boxes: list[Chatbox]):
@@ -386,17 +415,19 @@ class Chat(Widget):
         for box in boxes:
             # Create a simple container with the content
             container = ChatboxContainer()
-
-            # Mount the container directly
             await self.chat_container.mount(container)
             await container.mount(box)
 
-            # Force refresh
+            container.refresh(layout=True)
+            box.refresh(layout=True)
             self.chat_container.refresh(layout=True)
 
-        # Final refresh and scroll
+            await asyncio.sleep(0.01)
+            self.scroll_to_latest_message()
+
         self.chat_container.refresh(layout=True)
-        self.chat_container.scroll_end(animate=False)
+        await asyncio.sleep(0.01)  # Small delay to ensure layout is updated
+        self.scroll_to_latest_message()
 
     def _debug_widget_tree(self, widget, depth):
         if self.debug_log is None:

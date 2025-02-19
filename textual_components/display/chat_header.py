@@ -17,50 +17,59 @@ class ChatHeader(Widget):
     """A header widget for the chat interface with model selection."""
 
     DEFAULT_CSS = """
-    ChatHeader {
-        height: auto;
-        padding: 1;
-        background: $surface;
-        border-bottom: solid $primary;
-    }
+        ChatHeader {
+            height: 3;  /* Reduced from auto to fixed height */
+            padding: 0;  /* Removed padding */
+            background: $surface;
+            border-bottom: solid $primary;
+        }
 
-    #header-container {
-        align: left middle;
-        height: auto;
-        padding: 0 1;
-    }
+        #header-container {
+            align: left middle;
+            height: 3;  /* Match parent height */
+            padding: 0 1;
+        }
 
-    #title-container {
-        width: 60%;
-        height: auto;
-    }
+        #title-container {
+            width: 60%;
+            height: 3;  /* Match parent height */
+        }
 
-    #model-container {
-        width: 40%;
-        height: auto;
-    }
+        #model-container {
+            width: 40%;
+            height: 3;  /* Match parent height */
+        }
 
-    #title-static {
-        color: $text;
-        text-style: bold;
-    }
+        #title-static {
+            color: $text;
+            text-style: bold;
+            height: 3;  /* Match parent height */
+            content-align: left middle;  /* Vertically center text */
+        }
 
-    #title-input {
-        display: none;
-    }
+        #title-input {
+            display: none;
+            height: 3;  /* Match parent height */
+        }
 
-    #title-input.editing {
-        display: block;
-    }
+        #title-input.editing {
+            display: block;
+        }
 
-    #title-static.editing {
-        display: none;
-    }
+        #title-static.editing {
+            display: none;
+        }
 
-    Select {
-        width: 100%;
-    }
-    """
+        Select {
+            width: 100%;
+            height: 3;  /* Match parent height */
+        }
+
+        Button {
+            height: 3;  /* Match parent height */
+            min-width: 3;
+        }
+        """
 
     title = reactive("Untitled Chat", init=False)
     model_name = reactive("", init=False)

@@ -38,9 +38,11 @@ class Chatbox(Static, can_focus=True):  # Change Widget to Static
         self.is_ai = is_ai
         self.content = content
         self.styles.height = "auto"
+        self.styles.min_height = "1"
         self.styles.width = "100%"
         self.styles.box_sizing = "border-box"
         self.styles.overflow_y="scroll"
+        self.styles.visibility = "visible"
         self.current_length = len(content)
         self.update_content(content)
         self.prefix_added = False
@@ -56,6 +58,7 @@ class Chatbox(Static, can_focus=True):  # Change Widget to Static
             self.add_class("assistant-message")
         self.styles.height = "auto"
         self.styles.width = 'auto'
+        self.refresh(layout=True)
 
     def get_code_blocks(self, markdown_string):
         pattern = r"```(.*?)\n(.*?)```"

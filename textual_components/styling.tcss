@@ -22,11 +22,14 @@ Chat {
 Chat > VerticalScroll {
     border-left: $left-border-trim;
     overflow-y: auto;
-    height: 1fr;
+    height: auto;
+    min-height: 1fr;
     width: 100%;
     padding: 1;
+    padding-top: 3;
     margin-top: 3;  /* Add space for input area */
     border: solid red;
+    overflow: scroll;
 }
 
 ChatInputArea {
@@ -45,7 +48,7 @@ ChatInputArea {
     position: relative;  /* Make it float over content */
     margin-top: 0;
     border-left: $left-border-trim;
-    background: $background;  /* Add background to cover content */
+    background: $background;
     height: auto;
     min-height: 3;
     padding: 1 2;
@@ -135,6 +138,7 @@ ChatboxContainer {
   align: left top;
   padding-right: 20;
   min-height: 1;
+  margin-bottom: 1;
 }
 
 ChatboxContainer.assistant-message {
