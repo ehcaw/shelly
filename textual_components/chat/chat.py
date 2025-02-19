@@ -12,7 +12,7 @@ from textual_autocomplete import AutoComplete, Dropdown, DropdownItem
 from textual.worker import Worker, WorkerState
 
 
-from langchain.schema import BaseMessage
+from langchain.schema import BaseMessage, HumanMessage, AIMessage
 from langgraph.store.memory import InMemoryStore
 from langmem import create_manage_memory_tool, create_search_memory_tool
 from langgraph.prebuilt import create_react_agent
@@ -23,6 +23,7 @@ from ..widget.file_search import FileSearcher
 from ..display.chat_header import ChatHeader
 from ..display.typing_indicator import IsTyping
 from ..widget.chat_history import ChatHistory, MessageClass
+from shelly_types.ollama_embedding import OllamaEmbedding
 
 from pathlib import Path
 from datetime import datetime
@@ -84,7 +85,7 @@ class Chat(Widget):
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", "You are a helpful AI assistant. Provide clear and concise responses for the user's requests. Use a combination of your own knowledge and the context, with more emphasis on using the context."),
             ("user", "{input}"),
-            #("user", "Here are previous messages you should use for context: {context}"),
+            ("user", "Here are previous messages you should use for context: {context}"),
         ])
         self.configure_llm()
 
@@ -140,17 +141,18 @@ class Chat(Widget):
             self.chat_history.is_new_chat = value
 
     def configure_llm(self):
+        self.embeddings = OllamaEmbedding(model_name="nomic-embed-text")
         store = InMemoryStore(
             index = {
                 "dims": 1536,
-                "embed": "ollama:nomic-embed-text"
+                "embed": self.embeddings
             }
         )
         self.llm = create_react_agent(
             model=self.llm_instance,
             tools=[
-                create_manage_memory_tool(namespace=("memories",)),
-                create_search_memory_tool(namespace=("memories",)),
+                create_manage_memory_tool(namespace=("memories")),
+                create_search_memory_tool(namespace=("memories")),
             ],
             store=store
         )
@@ -326,10 +328,11 @@ class Chat(Widget):
             user_message = MessageClass(
                 _from="user",
                 content=content,
-                timestamp = str(datetime.now())
+                timestamp = str(datetime.now()),
+                summary = content
             )
             if self.chat_history.current_chat_id:
-                self.chat_history.update_conversation_single(self.chat_history.current_chat_id, user_message)
+                self.chat_history.update_conversation_single(self.chat_history.current_chat_id, user_message, content)
 
             # Show typing indicator
             self.responding_indicator.display = True
@@ -338,7 +341,7 @@ class Chat(Widget):
                 "role": "user",
                 "content": content
             }]
-            #self._app.zapper.add_user_input_to_summaries(content)
+            self._app.zapper.add_user_input_to_summaries(content)
 
             self.state["current_input"] = content
             self.state["should_end"] = False
@@ -346,28 +349,12 @@ class Chat(Widget):
             # Process through graph
             if self.debug_log:
                 self.debug_log.write("Processing through graph\n")
-            '''
-            ai_box = Chatbox("", is_ai=True)
-
-            try:
-                await self.mount_chat_boxes([ai_box])
-                response = []
-                async def stream_response():
-                    prompt = self.prompt.format_messages(input=self.state["current_input"])
-                    async for chunk in self.llm.astream(prompt):
-                        response.append(chunk.content)
-                        ai_box.update_content(response)
-                        self.scroll_to_latest_message()
-
-                    return "".join(response)
-                self.run_worker(stream_response)
-                '''
             try:
                 ai_box = Chatbox("", is_ai=True)
                 await self.mount_chat_boxes([ai_box])
                 response = []
                 async def stream_response():
-                    prompt = self.prompt.format_messages(input=self.state["current_input"])
+                    prompt = self.prompt.format_messages(input=self.state["current_input"], context=self.context)
                     async for chunk in self.llm.astream(prompt):
                         response.append(chunk.content)
                         ai_box.update_content(response)
@@ -401,10 +388,12 @@ class Chat(Widget):
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         if event.worker.state == WorkerState.SUCCESS:
             response = event.worker.result
+            current_time = str(datetime.now())
             if self.chat_history.current_chat_id:
-                ai_message = MessageClass(_from="ai", content=str(response), timestamp=str(datetime.now()))
-                self.chat_history.update_conversation_single(self.chat_history.current_chat_id, ai_message)
-                #self._app.zapper.summarize_message(str(response))
+                self._app.zapper.summarize_message(str(response))
+                ai_message = MessageClass(_from="ai", content=str(response), timestamp=current_time, summary=self.context[-1])
+                self.chat_history.update_conversation_single(self.chat_history.current_chat_id, MessageClass(_from="ai",content=str(response), timestamp=current_time, summary=self.context[-1]), self.context[-1])
+                self.debug_log.write(response)
 
 
     async def mount_chat_boxes(self, boxes: list[Chatbox]):
@@ -436,3 +425,16 @@ class Chat(Widget):
         self.debug_log.write(f"{indent}{widget}\n")
         for child in widget.children:
             self._debug_widget_tree(child, depth + 1)
+
+    # Use this method to load a conversation into the current llm state
+    def state_loader(self, messages):
+        state_messages = []
+        context_messages = []
+        for message in messages:
+            if message._from == "user" and message.summary:
+                context_messages.append(HumanMessage(content=message.summary))
+            else:
+                context_messages.append(AIMessage(content=message.summary))
+            state_messages.append({"role": "user" if message._from=="user" else "ai", "content": message.content})
+        self.state["messages"] = state_messages
+        self.state["context"] = context_messages

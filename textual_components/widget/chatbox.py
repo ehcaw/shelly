@@ -41,6 +41,7 @@ class Chatbox(Static, can_focus=True):  # Change Widget to Static
         self.styles.min_height = "1"
         self.styles.width = "100%"
         self.styles.box_sizing = "border-box"
+        self.styles.padding = (1, 2, 2, 2)
         self.styles.overflow_y="scroll"
         self.styles.visibility = "visible"
         self.current_length = len(content)
@@ -90,7 +91,8 @@ class Chatbox(Static, can_focus=True):  # Change Widget to Static
 
     def get_content_height(self, container, viewport, width) -> int:
         lines = str(self.content).split('\n')
-        return max(3, len(lines))  # At least 3 lines high
+        # Add extra lines for padding
+        return len(lines) + 2
 
     def get_content_width(self, container, viewport) -> int:
         return container.width  # Default width if no container

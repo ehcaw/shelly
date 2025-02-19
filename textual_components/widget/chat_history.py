@@ -1,6 +1,6 @@
 from datetime import datetime
 from dataclasses import dataclass
-from typing import Dict, Literal, List
+from typing import Dict, Literal, List, Optional
 
 from rich.text import Text
 from textual.app import ComposeResult
@@ -29,6 +29,7 @@ class MessageClass:
     _from: Literal["user", "ai"]
     content: str
     timestamp: str
+    summary: Optional[str]
 
 
 class ChatHistory(Widget):
@@ -182,7 +183,7 @@ class ChatHistory(Widget):
         except Exception:
             return False
 
-    def update_conversation_single(self, conversation_id: str, message: MessageClass) -> bool:
+    def update_conversation_single(self, conversation_id: str, message: MessageClass, summary: str) -> bool:
         conversation_index = self.index[conversation_id]
         if not conversation_index:
             return False
@@ -190,7 +191,7 @@ class ChatHistory(Widget):
         with open(file_path, 'r') as f:
             jsoned = json.load(f)
             f.close()
-        jsoned["messages"].append({"_from": message._from, "content": message.content, "timestamp": message.timestamp})
+        jsoned["messages"].append({"_from": message._from, "content": message.content, "timestamp": message.timestamp, "summary": summary})
         with open(file_path, 'w') as fr:
             json.dump(jsoned, fr, indent=4)
             fr.close()
@@ -204,7 +205,7 @@ class ChatHistory(Widget):
         with open(file_path, 'r') as f:
             jsoned = json.load(f)
             f.close()
-        jsoned["messages"] = [{"_from": message._from, "content": message.content, "timestamp": message.timestamp} for message in messages]
+        jsoned["messages"] = [{"_from": message._from, "content": message.content, "timestamp": message.timestamp, "summary": message.summary} for message in messages]
         with open(file_path, 'w') as fr:
             json.dump(jsoned, fr, indent=4)
             fr.close()
