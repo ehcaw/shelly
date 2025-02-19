@@ -210,6 +210,8 @@ class ChatHistory(Widget):
             fr.close()
         return True
 
+
+
     def load_conversation(self, conversation_id: str):
         conversation_index = self.index[conversation_id]
         if not conversation_index: return {}

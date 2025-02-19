@@ -3,6 +3,7 @@ from textual import events
 from langchain_groq import ChatGroq
 from pydantic import SecretStr
 from agents.graph import SimpleChat
+from agents.zapper import Zapper
 import os
 import asyncio
 from dotenv import load_dotenv
@@ -65,7 +66,7 @@ class Shelly(App):
     def __init__(self):
         super().__init__()
         self.child_terminal = None
-        self.zapper = SimpleChat()
+        #self.zapper = SimpleChat()
         api_key = os.getenv('GROQ_API_KEY')
         if not api_key:
             raise ValueError("GROQ_API_KEY environment variable is not set")
@@ -81,6 +82,7 @@ class Shelly(App):
             temperature=0,
             stop_sequences=None
         )
+        self.zapper = Zapper(self.simple_llm)
         # token usage plot intialization
         self.operation_counter = 0
         self.operations = []
@@ -164,38 +166,6 @@ class Shelly(App):
         # Add any cleanup code here
         if self.child_terminal:
             self.child_terminal.kill_tmux_session()
-
-
-    @debounce(0.5)
-    def process_input(self, user_input: str, output_log: CustomRichLog) -> None:
-        """Process input through the graph"""
-        total_tokens = 0
-        try:
-            # Update state with user input
-            self.zapper.state["messages"] = self.zapper.state["messages"] + [{
-                "role": "user",
-                "content": user_input
-            }]
-            self.zapper.state["current_input"] = user_input
-            self.zapper.state["should_end"] = False  # Reset end flag
-
-            # Single stream iteration
-            for event in self.zapper.graph.stream(self.zapper.state):
-                if "current_messages" in event:
-                    # Get response from LLM
-                    response = self.zapper.llm.invoke(event["current_messages"])
-
-                    # Write response
-                    if response and hasattr(response, 'content'):
-                        output_log.write("\nAssistant: " + str(response.content))
-                        self.zapper.state["action_output"] = str(response.content)
-
-                    output_log.write("\n")  # Add final newline
-
-        except Exception as e:
-            import traceback
-            output_log.write(f"\n[red]Error: {str(e)}[/red]")
-            output_log.write(f"\n[dim]{traceback.format_exc()}[/dim]")
 
     async def on_mount(self) -> None:
         """Called after the app is mounted"""

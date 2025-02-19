@@ -13,6 +13,10 @@ from textual.worker import Worker, WorkerState
 
 
 from langchain.schema import BaseMessage
+from langgraph.store.memory import InMemoryStore
+from langmem import create_manage_memory_tool, create_search_memory_tool
+from langgraph.prebuilt import create_react_agent
+from langchain.prompts import ChatPromptTemplate
 
 from ..widget.chatbox import Chatbox, ChatboxContainer
 from ..widget.file_search import FileSearcher
@@ -76,6 +80,11 @@ class Chat(Widget):
         self.multiline = True
         # Initialize debug output
         self.debug_log = None
+        self.prompt = ChatPromptTemplate.from_messages([
+            ("system", "You are a helpful AI assistant. Provide clear and concise responses for the user's requests. Use a combination of your own knowledge and the context, with more emphasis on using the context."),
+            ("user", "{input}"),
+            ("user", "Here are previous messages you should use for context: {context}"),
+        ])
 
 
 
@@ -88,6 +97,10 @@ class Chat(Widget):
     @llm.setter
     def llm(self, value):
         self._app_versatile_llm = value
+
+    @property
+    def context(self):
+        return self._app.zapper.state["summaries"]
 
     @property
     def graph(self):
@@ -122,6 +135,23 @@ class Chat(Widget):
     def is_new_chat(self, value):
         if self.chat_history is not None:
             self.chat_history.is_new_chat = value
+
+    def configure_llm(self):
+        store = InMemoryStore(
+            index = {
+                "dims": 1536,
+                "embed": "ollama:nomic-embed-text"
+            }
+        )
+        self.agent = create_react_agent(
+            model=self.llm,
+            tools=[
+                create_manage_memory_tool(namespace=("memories",)),
+                create_search_memory_tool(namespace=("memories",)),
+            ],
+            store=store
+        )
+
 
     def compose(self) -> ComposeResult:
         self.chat_header = ChatHeader(self)
@@ -300,6 +330,8 @@ class Chat(Widget):
                 "role": "user",
                 "content": content
             }]
+            self._app.zapper.add_user_input_to_summaries(content)
+
             self.state["current_input"] = content
             self.state["should_end"] = False
 
@@ -312,10 +344,12 @@ class Chat(Widget):
                 await self.mount_chat_boxes([ai_box])
                 response = []
                 async def stream_response():
-                    async for chunk in self.llm.astream(self.state["current_input"]):
+                    prompt = self.prompt.format_messages(input=self.state["current_input"], context=self._app.zapper.state["summaries"])
+                    async for chunk in self.llm.astream(prompt):
                         response.append(chunk.content)
                         ai_box.update_content(response)
                         self.scroll_to_latest_message()
+
                     return "".join(response)
                 self.run_worker(stream_response)
             except Exception as e:
@@ -341,7 +375,7 @@ class Chat(Widget):
             if self.chat_history.current_chat_id:
                 ai_message = MessageClass(_from="ai", content=str(response), timestamp=str(datetime.now()))
                 self.chat_history.update_conversation_single(self.chat_history.current_chat_id, ai_message)
-
+                self._app.zapper.summarize_message(str(response))
 
 
     async def mount_chat_boxes(self, boxes: list[Chatbox]):
