@@ -64,8 +64,8 @@ class ChatInputArea(TextArea):
         super()._on_focus(event)
         self.chat.scroll_to_latest_message()
 
-    def action_search(self):
-        self.screen.action_search()
+    #def action_search(self):
+        #self.screen.action_search()
 
 
 class Chat(Widget):
@@ -87,18 +87,15 @@ class Chat(Widget):
             ("user", "{input}"),
             ("user", "Here are previous messages you should use for context: {context}"),
         ])
-        self.configure_llm()
-
-
 
     allow_input_submit = var(True)
     """Used to lock the chat input while the agent is responding."""
 
     @property
-    def llm_instance(self):
+    def llm(self):
         return self._app.versatile_llm
-    @llm_instance.setter
-    def llm_instance(self, value):
+    @llm.setter
+    def llm(self, value):
         self._app_versatile_llm = value
 
     @property
@@ -138,25 +135,6 @@ class Chat(Widget):
     def is_new_chat(self, value):
         if self.chat_history is not None:
             self.chat_history.is_new_chat = value
-
-    def configure_llm(self):
-        self.embeddings = OllamaEmbedding(model_name="nomic-embed-text")
-        store = InMemoryStore(
-            index = {
-                "dims": 1536,
-                "embed": self.embeddings
-            }
-        )
-        self.llm = create_react_agent(
-            model=self.llm_instance,
-            tools=[
-                create_manage_memory_tool(namespace=("memories")),
-                create_search_memory_tool(namespace=("memories")),
-            ],
-            store=store
-        )
-
-
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="chat-app"):
