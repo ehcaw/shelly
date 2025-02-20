@@ -24,12 +24,18 @@ class ConversationIndex:
     name: str
     timestamp: str
 
+    def __getitem__(self, key):
+        return getattr(self, key)
+
 @dataclass
 class MessageClass:
     _from: Literal["user", "ai"]
     content: str
     timestamp: str
     summary: Optional[str]
+
+    def __getitem__(self, key):
+        return getattr(self, key)
 
 
 class ChatHistory(Widget):
@@ -257,7 +263,7 @@ class ChatHistory(Widget):
     def get_conversation_name(self, conversation_id: str):
         conversation_index = self.index[conversation_id]
         if not conversation_index:
-            return "Untitled chat ajsdflkajsdflkjasf"
+            return "Untitled chat"
         file_path = Path(conversation_index["path"])
         try:
             with open(file_path, 'r') as f:
@@ -266,4 +272,4 @@ class ChatHistory(Widget):
                 return contents["name"]
         except Exception as e:
             print('conversation not found')
-            return "Untitled chat blablajdlkfjas"
+            return "Untitled chat"

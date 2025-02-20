@@ -334,6 +334,7 @@ class Chat(Widget):
                 await self.mount_chat_boxes([ai_box])
                 response = []
                 async def stream_response():
+                    assert self.chat_container
                     prompt = self.prompt.format_messages(input=self.state["current_input"], context=self.context)
                     async for chunk in self.llm.astream(prompt):
                         response.append(chunk.content)
