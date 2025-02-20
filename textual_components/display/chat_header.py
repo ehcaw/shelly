@@ -203,6 +203,5 @@ class ChatHeader(Widget):
         title_input = self.query_one("#title-input", Input)
         title_static.update(new_title)
         title_input.value = new_title
-        self.title = new_title
         title_static.refresh(layout=True)
         title_input.refresh(layout=True)

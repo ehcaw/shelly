@@ -160,21 +160,19 @@ ChatboxContainer {
   width: 100%;
   height: auto;
   align: left top;
-  padding-right: 20;
+  padding-right: 5;
   min-height: 1;
 }
 
 ChatboxContainer.assistant-message {
-  align: right top;
-  padding-left: 20;
-  padding-right: 0;
+  padding-left: 5;
+  padding-right: 5;
 }
 
 Chatbox {
   color: $text;
   background: $main 50%;
   height: auto;
-  width: 100%;
   margin: 1 2;
   padding: 1 2 1 1;
   box-sizing: border-box;
@@ -183,7 +181,6 @@ Chatbox {
 
 Chatbox:focus {
   border-left: thick $main-lighten-2;
-  padding: 1 2 1 1;
 }
 
 Chatbox.assistant-message {

@@ -64,6 +64,7 @@ class ChatInputArea(TextArea):
         super()._on_focus(event)
         self.chat.scroll_to_latest_message()
 
+
     #def action_search(self):
         #self.screen.action_search()
 
@@ -190,7 +191,7 @@ class Chat(Widget):
         if str("/file") in current_line and cursor[1] - (current_line.index("/file")+5) == 1:
             selection_list = FileSearcher(text_area=self.input_area, search="file")
             assert self.chat_container
-            #await self.chat_container.mount(selection_list)
+            await self.chat_container.mount(selection_list)
             selection_list.focus()
 
         if str("/dir") in current_line and cursor[1] - (current_line.index("/dir")+4) == 1:
@@ -201,7 +202,7 @@ class Chat(Widget):
                 input=Input(placeholder="Type to search..."),
                 dropdown=Dropdown(items=[DropdownItem(str(file)) for file in p.iterdir()])
             )
-            #await self.chat_container.mount(selection_list)
+            await self.chat_container.mount(selection_list)
             await self.chat_container.mount(autocomplete)
             selection_list.focus()
 
@@ -252,7 +253,7 @@ class Chat(Widget):
         option_list = self.query_one("#cl-option-list", OptionList)
         option_list.clear_options()
         options = self.chat_history._load_conversations()
-        option_list.add_options([Option(data["chat_name"], id=conv_id) for conv_id, data in options.items()])
+        option_list.add_options([Option(data["chat_name"] if len(data["chat_name"]) < 20 else data["chat_name"][:40] + "...", id=conv_id) for conv_id, data in options.items()])
 
     @dataclass
     class MessageSubmitted(Message):
