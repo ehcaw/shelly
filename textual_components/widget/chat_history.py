@@ -90,11 +90,9 @@ class ChatHistory(Widget):
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         conversation_id = event.option.id
-        self.current_chat_id = conversation_id
         print("HELLO BAKA")
         print(conversation_id)
         if conversation_id in self.index:
-            self.current_chat_id = conversation_id
             # Post a message that will be handled by the Chat widget
             self.post_message(self.ChatOpened(conversation_id))
 
@@ -183,19 +181,51 @@ class ChatHistory(Widget):
         except Exception:
             return False
 
-    def update_conversation_single(self, conversation_id: str, message: MessageClass, summary: str) -> bool:
+    def add_conversation_single(self, conversation_id: str, message: MessageClass, summary: str) -> bool:
         conversation_index = self.index[conversation_id]
         if not conversation_index:
             return False
         file_path = conversation_index["path"]
         with open(file_path, 'r') as f:
-            jsoned = json.load(f)
-            f.close()
-        jsoned["messages"].append({"_from": message._from, "content": message.content, "timestamp": message.timestamp, "summary": summary})
+            conversation = json.load(f)
+        message_dict = {
+            "_from": message._from,
+            "content": message.content,
+            "timestamp": message.timestamp,
+            "summary": summary
+        }
+        conversation["messages"].append(message_dict)
         with open(file_path, 'w') as fr:
-            json.dump(jsoned, fr, indent=4)
-            fr.close()
+            json.dump(conversation, fr, indent=4)
         return True
+
+    def update_conversation_single(self, conversation_id: str, message: MessageClass, summary: str) -> bool:
+        try:
+            conversation_index = self.index[conversation_id]
+            if not conversation_index:
+                return False
+
+            file_path = conversation_index["path"]
+
+            # First read the entire file
+            with open(file_path, 'r') as f:
+                conversation = json.load(f)
+
+            # Update the summary
+            if conversation["messages"]:  # Check if there are messages
+                conversation["messages"][-1]["summary"] = summary
+
+            # Write the entire updated conversation back to file
+            with open(file_path, 'w') as f:
+                json.dump(conversation, f, indent=4)
+
+            return True
+
+        except Exception as e:
+            print(f"Error updating conversation: {e}")
+            import traceback
+            print(traceback.format_exc())
+            return False
 
     def update_conversation_multiple(self, conversation_id: str, messages: List[MessageClass]) -> bool:
         conversation_index = self.index[conversation_id]
@@ -211,10 +241,9 @@ class ChatHistory(Widget):
             fr.close()
         return True
 
-
-
     def load_conversation(self, conversation_id: str):
         conversation_index = self.index[conversation_id]
+        self.current_chat_id = conversation_id
         if not conversation_index: return {}
         file_path = Path(conversation_index["path"])
         try:
@@ -224,3 +253,17 @@ class ChatHistory(Widget):
         except Exception as e:
             print('conversation not found')
             return []
+
+    def get_conversation_name(self, conversation_id: str):
+        conversation_index = self.index[conversation_id]
+        if not conversation_index:
+            return "Untitled chat ajsdflkajsdflkjasf"
+        file_path = Path(conversation_index["path"])
+        try:
+            with open(file_path, 'r') as f:
+                contents = json.load(f)
+                print(contents)
+                return contents["name"]
+        except Exception as e:
+            print('conversation not found')
+            return "Untitled chat blablajdlkfjas"

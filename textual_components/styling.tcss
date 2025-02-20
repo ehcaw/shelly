@@ -28,7 +28,6 @@ Chat > VerticalScroll {
     padding: 1;
     padding-top: 3;
     margin-top: 3;  /* Add space for input area */
-    border: solid red;
     overflow: scroll;
 }
 
@@ -65,6 +64,7 @@ ChatHeader {
   padding: 1 2;
   background: $background 50%;
   border-left: $left-border-trim;
+  margin: 1;
 }
 
 ChatHeader > Static {
@@ -96,6 +96,30 @@ ChatHeader Vertical {
     width: 25%;
     height: 100%;
     border-right: solid $primary;
+}
+
+/* Style the option list */
+OptionList {
+    width: 100%;
+    min-width: 30;  /* Ensure minimum width for options */
+    padding: 0 1;
+}
+
+/* Style individual options */
+Option {
+    width: 100%;
+    padding: 1 2;  /* Add more padding */
+    height: auto;  /* Allow height to adjust to content */
+    background: $surface;
+}
+
+Option:hover {
+    background: $accent;
+}
+
+Option > .option-label {
+    width: 100%;
+    min-height: 1;
 }
 
 #main-chat-area {
@@ -138,8 +162,6 @@ ChatboxContainer {
   align: left top;
   padding-right: 20;
   min-height: 1;
-  margin-bottom: 2;
-  padding-bottom: 1;
 }
 
 ChatboxContainer.assistant-message {
@@ -154,9 +176,8 @@ Chatbox {
   height: auto;
   width: 100%;
   margin: 1 2;
-  padding: 1 2;
+  padding: 1 2 1 1;
   box-sizing: border-box;
-  padding-bottom: 1;
   min-height: 3;
 }
 

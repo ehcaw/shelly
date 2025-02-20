@@ -22,18 +22,17 @@ class Zapper:
         )
         self.summarizer_llm = summarizer
         self.system_prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are a helpful assistant that summarizes messages to manage context. Summarize the given input, extracting useful information from the response for future interaction"),
+            ("system", "You are a helpful assistant that summarizes messages to manage context. Summarize the given input, extracting useful information from the response for future interaction. Ensure that the result is shorter than the original response."),
             ("user", "{input}"),
         ])
 
     def add_user_input_to_summaries(self, input):
         self.state["summaries"].append(HumanMessage(content=input))
 
-    def summarize_message(self, response):
+    async def summarize_message(self, response):
         prompt = self.system_prompt.format_messages(input=response)
-        summarized_response = self.summarizer_llm.invoke(prompt)
-
-        # If summarized_response is a string
+        ai_summary = await self.summarizer_llm.ainvoke(prompt)
+        summarized_response = str(ai_summary.content)
         if isinstance(summarized_response, str):
             self.state["summaries"].append(AIMessage(content=summarized_response))
         else:

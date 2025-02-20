@@ -101,7 +101,6 @@ class Chat(Widget):
     def llm_instance(self, value):
         self._app_versatile_llm = value
 
-
     @property
     def context(self):
         return self._app.zapper.state["summaries"]
@@ -246,9 +245,12 @@ class Chat(Widget):
 
     @on(ChatHistory.ChatOpened)
     async def on_chat_opened(self, message: ChatHistory.ChatOpened) -> None:
+        if self.chat_history.current_chat_id and message.chat_id == self.chat_history.current_chat_id:
+            return
         if self.chat_container:
             self.chat_container.remove_children()
         messages = self.chat_history.load_conversation(message.chat_id)
+        self.chat_header.watch_title(self.chat_history.get_conversation_name(message.chat_id))
         chatboxes = []
         assert self.debug_log
         self.debug_log.write('chat opened')
@@ -332,7 +334,7 @@ class Chat(Widget):
                 summary = content
             )
             if self.chat_history.current_chat_id:
-                self.chat_history.update_conversation_single(self.chat_history.current_chat_id, user_message, content)
+                self.chat_history.add_conversation_single(self.chat_history.current_chat_id, user_message, content)
 
             # Show typing indicator
             self.responding_indicator.display = True
@@ -385,16 +387,39 @@ class Chat(Widget):
                 import traceback
                 self.debug_log.write(traceback.format_exc())
 
-    def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
-        if event.worker.state == WorkerState.SUCCESS:
+    async def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
+        if event.worker.state == WorkerState.SUCCESS and event.worker.result:
             response = event.worker.result
             current_time = str(datetime.now())
             if self.chat_history.current_chat_id:
-                self._app.zapper.summarize_message(str(response))
-                ai_message = MessageClass(_from="ai", content=str(response), timestamp=current_time, summary=self.context[-1])
-                self.chat_history.update_conversation_single(self.chat_history.current_chat_id, MessageClass(_from="ai",content=str(response), timestamp=current_time, summary=self.context[-1]), self.context[-1])
-                self.debug_log.write(response)
+                ai_message = MessageClass(
+                    _from="ai",
+                    content=str(response),
+                    timestamp=current_time,
+                    summary="Generating summary"
+                )
+                self.chat_history.add_conversation_single(
+                    self.chat_history.current_chat_id,
+                    ai_message,
+                    "Generating summary"
+                )
+                await self.summarize_and_update(str(response), ai_message)
 
+
+
+    async def summarize_and_update(self, response: str, ai_message: MessageClass) -> None:
+        try:
+            await self._app.zapper.summarize_message(str(response))
+            last_summary = self.context[-1]
+            summary_content = last_summary.content if isinstance(last_summary, AIMessage) else str(last_summary)
+            summary_content = str(summary_content)
+            ai_message.summary = summary_content
+            if self.chat_history.current_chat_id:
+                self.chat_history.update_conversation_single(self.chat_history.current_chat_id, ai_message, summary_content if summary_content else "no summary found")
+
+        except Exception as e:
+            if self.debug_log:
+                self.debug_log.write(f"Error in summarization: {str(e)}\n")
 
     async def mount_chat_boxes(self, boxes: list[Chatbox]):
         if self.debug_log:
