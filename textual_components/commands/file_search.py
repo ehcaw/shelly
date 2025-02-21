@@ -3,7 +3,6 @@ from textual.app import ComposeResult
 from textual.widgets import Input, Static, TextArea, SelectionList
 from textual.widgets.selection_list import Selection
 from textual.containers import Container
-from .above_dropdown import CommandDropdown
 from typing import Optional, List
 from functools import lru_cache
 import fnmatch
@@ -51,7 +50,6 @@ class SelectionList(SelectionList):
         self.curr_listings = self.all_files if filter == "files" else self.all_dirs
         super().__init__(*self.all_dirs, id=id)  # Pass initial options to SelectionList
         self.selection_list = None
-
     @lru_cache
     def get_all_files_in_cwd(self, directory: Optional[str] = None, max_files=100) -> List[str]:
         cwd = directory if directory else self.cwd
@@ -191,58 +189,108 @@ class SelectionList(SelectionList):
 
 
 class FileSearcher(Container):
-    def __init__(self, text_area: TextArea, search: str = "file"):
+    def __init__(self, text_area: TextArea, items: List[str]):
         super().__init__()
-        self.search = search
         self.text_area = text_area
-        self.input = None
-        self.selection_list = None
-        self.search = search
+        self.items = items
+        self.filtered_items = items
 
     def compose(self) -> ComposeResult:
-        self.selection_list = SelectionList(self.text_area, filter=self.search)
         self.input = Input(id='search', placeholder='Type to filter')
+        self.selection_list = SelectionList(self.text_area, filter="file")
         yield self.input
         yield self.selection_list
 
+    async def on_mount(self) -> None:
+        """Focus input and select first item when mounted"""
+        self.input.focus()
+        if self.filtered_items:
+            self.selection_list.highlighted = 0
 
     @on(Input.Changed)
     def filter_list(self):
-        filtered_items = []
-        assert self.input is not None
         current_filter = str(self.input.value).lower()
 
-        assert self.selection_list is not None
-        if len(str(current_filter).lower()) == 0:
-            self.selection_list.clear_options()
-            self.selection_list.add_options(self.selection_list.curr_listings)
-            return
-
-        for item in self.selection_list.curr_listings:
-            if all(word in str(item.prompt).lower() for word in current_filter.split()):
-                filtered_items.append(item)
+        if not current_filter:
+            self.filtered_items = self.items
+        else:
+            self.filtered_items = [
+                item for item in self.items
+                if all(word in item.lower() for word in current_filter.split())
+            ]
 
         self.selection_list.clear_options()
-        if filtered_items:
-            self.selection_list.add_options(filtered_items)
-            self.selection_list.highlighted = 0
+        self.selection_list.add_options([
+            Selection(str(item), idx)
+            for idx, item in enumerate(self.filtered_items)
+        ])
 
-    @on(SelectionList.SelectionToggled)
-    def select(self):
-        assert self.selection_list is not None
-        assert self.selection_list.highlighted is not None
-        selected_option = self.selection_list.get_option_at_index(self.selection_list.highlighted)
-        cursor_pos = self.text_area.cursor_location
-        if cursor_pos is None:
-            return
-
-        current_line = self.text_area.document.get_line(cursor_pos[0])
-        #command_start = current_line.index("/")
-
-        self.text_area.insert(str(selected_option.prompt))
-        self.text_area.action_cursor_down()
-        self.remove()
-
-    def on_key(self, event):
+    def on_key(self, event) -> None:
+        # Handle escape key to remove the widget
         if event.key == "escape":
             self.remove()
+            # Make sure to return focus to the text area
+            self.text_area.focus()
+            event.prevent_default()
+        elif event.key == "enter":
+            # Trigger selection on enter key
+            self.confirm_selection()
+            event.prevent_default()
+
+    @on(SelectionList.SelectionToggled)
+    async def select(self) -> None:
+        try:
+            if self.selection_list.highlighted is None:
+                return
+
+            selected = self.filtered_items[self.selection_list.highlighted]
+            cursor_pos = self.text_area.cursor_location
+            if cursor_pos is None:
+                return
+
+            current_line = self.text_area.document.get_line(cursor_pos[0])
+            command_start = current_line.index("/")
+
+            # Replace everything after the command
+            new_line = current_line[:command_start] + f"/{self.command_name} {selected}"
+            self.text_area.document.set_line(cursor_pos[0], new_line)
+
+            # Make sure we remove ourselves and return focus
+            await self.remove()
+            self.text_area.focus()
+        except Exception as e:
+            print(f"Error in select: {e}")  # Add some debug logging
+
+    def confirm_selection(self) -> None:
+        """Handle selection confirmation"""
+        try:
+            if self.selection_list.highlighted is None:
+                return
+
+            selected = self.filtered_items[self.selection_list.highlighted]
+            cursor_pos = self.text_area.cursor_location
+            if cursor_pos is None:
+                return
+
+            current_line = self.text_area.document.get_line(cursor_pos[0])
+            command_start = current_line.index("/")
+
+            # Replace everything after the command
+            new_line = current_line[:command_start] + f"/file {selected}"
+            self.text_area.document.set_line(cursor_pos[0], new_line)
+
+            self.remove()
+            self.text_area.focus()
+        except Exception as e:
+            print(f"Error in confirm_selection: {e}")
+
+    # Add method to properly clean up
+    async def on_unmount(self) -> None:
+        """Called when the widget is unmounted."""
+        try:
+            # Make sure we cleanup any references
+            self.text_area = None
+            self.items = None
+            self.filtered_items = None
+        except Exception as e:
+            print(f"Error in unmount: {e}")

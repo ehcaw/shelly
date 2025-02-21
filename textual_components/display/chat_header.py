@@ -15,7 +15,6 @@ from pydantic import SecretStr
 
 class ChatHeader(Widget):
     """A header widget for the chat interface with model selection."""
-
     DEFAULT_CSS = """
         ChatHeader {
             height: 3;

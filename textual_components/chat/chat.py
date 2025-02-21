@@ -8,7 +8,7 @@ from textual.message import Message
 from textual.reactive import var
 from textual import on, events, work
 from textual.events import Key
-from textual_autocomplete import AutoComplete, Dropdown, DropdownItem
+from textual_autocomplete import AutoComplete, Dropdown, DropdownItem, InputState
 from textual.worker import Worker, WorkerState
 
 
@@ -19,54 +19,24 @@ from langgraph.prebuilt import create_react_agent
 from langchain.prompts import ChatPromptTemplate
 
 from ..widget.chatbox import Chatbox, ChatboxContainer
-from ..widget.file_search import FileSearcher
+from ..commands.file_search import FileSearcher
 from ..display.chat_header import ChatHeader
 from ..display.typing_indicator import IsTyping
 from ..widget.chat_history import ChatHistory, MessageClass
-from shelly_types.ollama_embedding import OllamaEmbedding
+from ..commands.file_command import FileCommand
+from ..commands.registry import SlashCommandRegistry
+from ..commands.new_file_search import SlashCommandPopup
+from ..commands.autocomplete import AutoComplete, Dropdown, DropdownItem
+from ..chat.chat_input_area import ChatInputArea
 
 from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass
+from typing import List
+import os
 import asyncio
+from functools import lru_cache
 
-
-class ChatInputArea(TextArea):
-    BINDINGS = [
-        Binding(
-            key="ctrl+s",
-            action="focus('cl-option-list')",
-            description="Focus List",
-            key_display="^s",
-        ),
-        Binding(
-            key="ctrl+f",
-            action="search",
-            description="Search",
-            key_display="^f",
-        ),
-    ]
-
-    class Submit(Message):
-        def __init__(self, textarea: "ChatInputArea") -> None:
-            super().__init__()
-            self.input_area = textarea
-
-        @property
-        def control(self):
-            return self.input_area
-
-    def __init__(self, chat: "Chat", *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.chat = chat
-
-    def _on_focus(self, event: events.Focus) -> None:
-        super()._on_focus(event)
-        self.chat.scroll_to_latest_message()
-
-
-    #def action_search(self):
-        #self.screen.action_search()
 
 
 class Chat(Widget):
@@ -88,6 +58,7 @@ class Chat(Widget):
             ("user", "{input}"),
             ("user", "Here are previous messages you should use for context: {context}"),
         ])
+
 
     allow_input_submit = var(True)
     """Used to lock the chat input while the agent is responding."""
@@ -167,46 +138,6 @@ class Chat(Widget):
             screen_layers.append("selection-list")
         self.screen.styles.layers = tuple(screen_layers)
 
-    @on(TextArea.Changed)
-    async def on_input_changed(self, event: TextArea.Changed):
-        if not self.input_area:
-            return
-
-        # Get current content height
-        current_height = len(self.input_area.text.split('\n'))
-        current_is_multiline = current_height > 1
-
-        if current_is_multiline != self.multiline:
-            self.multiline = current_is_multiline
-            self.input_area.remove_class("singleline")
-            self.input_area.remove_class("multiline")
-            self.input_area.add_class("multiline" if current_is_multiline else "singleline")
-            self.refresh(layout=True)
-
-
-        cursor = self.input_area.cursor_location
-        if cursor is None:
-            return
-        current_line = self.input_area.document.get_line(cursor[0])
-        if str("/file") in current_line and cursor[1] - (current_line.index("/file")+5) == 1:
-            selection_list = FileSearcher(text_area=self.input_area, search="file")
-            assert self.chat_container
-            await self.chat_container.mount(selection_list)
-            selection_list.focus()
-
-        if str("/dir") in current_line and cursor[1] - (current_line.index("/dir")+4) == 1:
-            selection_list = FileSearcher(text_area=self.input_area, search="dirs")
-            assert self.chat_container
-            p = Path('/')
-            autocomplete = AutoComplete(
-                input=Input(placeholder="Type to search..."),
-                dropdown=Dropdown(items=[DropdownItem(str(file)) for file in p.iterdir()])
-            )
-            await self.chat_container.mount(selection_list)
-            await self.chat_container.mount(autocomplete)
-            selection_list.focus()
-
-
     @on(ChatInputArea.Submit)
     async def user_chat_message_submitted(self, event: ChatInputArea.Submit) -> None:
         if self.allow_input_submit:
@@ -253,7 +184,7 @@ class Chat(Widget):
         option_list = self.query_one("#cl-option-list", OptionList)
         option_list.clear_options()
         options = self.chat_history._load_conversations()
-        option_list.add_options([Option(data["chat_name"] if len(data["chat_name"]) < 20 else data["chat_name"][:40] + "...", id=conv_id) for conv_id, data in options.items()])
+        option_list.add_options([Option(data["chat_name"] if len(data["chat_name"]) < 40 else data["chat_name"][:40] + "...", id=conv_id) for conv_id, data in options.items()])
 
     @dataclass
     class MessageSubmitted(Message):
