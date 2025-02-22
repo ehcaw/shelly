@@ -1,13 +1,9 @@
-click
 repopack
 setuptools
 virtualenv
 groq
-fastapi
-uvicorn
 prompt_toolkit
 requests
-black
 zmq
 langgraph
 langchain_openai
@@ -19,3 +15,6 @@ langchain_community
 langchain-huggingface
 python-dotenv>=0.19.0
 textual-plotext
+pyte
+pyperclip
+shortuuid

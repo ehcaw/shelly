@@ -1,13 +1,9 @@
-<<<<<<< HEAD
-from setuptools import setup, find_packages
-=======
 from setuptools import find_namespace_packages, setup, find_packages
->>>>>>> c5f2d769e12b962bd4de42d265ca9835737a304c
+
 
 setup(
     name='shelly',
     version='0.1',
-<<<<<<< HEAD
     packages=find_packages(),
     install_requires=[
         'click',
@@ -40,16 +36,5 @@ setup(
         'console_scripts': [
             'shelly=my_app:main'
         ],
-    },
-=======
-     py_modules=['shelly'],
-        install_requires=[
-        'Click',
-    ],
-    packages=find_packages(),
-    entry_points='''
-        [console_scripts]
-        shelly=shelly:cli
-    ''',
->>>>>>> c5f2d769e12b962bd4de42d265ca9835737a304c
+    }
 )
