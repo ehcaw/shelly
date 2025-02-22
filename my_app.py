@@ -1,20 +1,26 @@
 from textual.app import App
+
 from langchain_groq import ChatGroq
 from pydantic import SecretStr
-import os
-import asyncio
-from dotenv import load_dotenv
+
 from textual.widgets import RichLog, Header
 from textual.containers import Vertical, Grid, ScrollableContainer
 from textual_components.terminal_widget import PtyTerminal, TabbedTerminals
 from textual.message import Message
-from textual.widgets import Static
+from textual.widgets import Static, TextArea, SelectionList
 from dataclasses import dataclass
 from typing import Callable
-from functools import wraps
+
+from functools import wraps, lru_cache
 import time
+import fnmatch
+import os
+import asyncio
+from pathlib import Path
+from dotenv import load_dotenv
 
 from textual_components.chat.chat import Chat
+from agents.zapper import Zapper
 
 
 load_dotenv()
@@ -107,7 +113,7 @@ class Shelly(App):
                 with ScrollableContainer(id="terminal_panel"):
                     yield TabbedTerminals()
 
-    '''
+
     def action_new_terminal(self):
         """Add a new terminal tab."""
         terminal_tabs = self.query_one(TabbedTerminals)
@@ -117,7 +123,6 @@ class Shelly(App):
         """Close the current terminal tab."""
         terminal_tabs = self.query_one(TabbedTerminals)
         terminal_tabs.action_close_terminal()
-    '''
 
     def action_maximise(self):
         """Maximise the focused widget"""
@@ -127,7 +132,6 @@ class Shelly(App):
 
     def action_refresh_screen(self):
         self.refresh(layout=True)
-
 
     async def on_shutdown(self) -> None:
         """Clean up when the application is shutting down"""
@@ -140,7 +144,6 @@ class Shelly(App):
         await asyncio.sleep(1)  # Wait for widgets to be ready
         debug_log = self.query_one("#debug_log", RichLog)
         chat = self.query_one(Chat)
-        assert chat.debug_log
         chat.debug_log = debug_log
 
 
@@ -151,6 +154,190 @@ class Command:
     description: str
     handler: Callable
     args: list = None
+
+# this class has to stay here because we have to pass a reference of shelly to it (preventing circular imports)
+class CustomTextArea(TextArea):
+    """A TextArea with custom key bindings."""
+    def __init__(self, app: Shelly, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.show_line_numbers=True
+        self._shelly_app = app
+        self.last_submitted_position = 0
+        '''
+        self.commands: Dict[str, Command] = {
+            "!help": Command(
+                name="help",
+                description="Show help message",
+                handler=self.show_help
+            ),
+            "!clear": Command(
+                name="clear",
+                description="Clear output",
+                handler=self.clear_output
+            ),
+            "!run": Command(
+                name="run",
+                description="Run code",
+                handler=self.run_code,
+                args=["filepath"]
+            )
+        }'''
+
+    @lru_cache
+    def get_all_files_in_cwd(self, max_files=100):
+        cwd = os.getcwd()
+        files = []
+
+        # Extensive list of directories to ignore
+        ignore_dirs = {
+            # Version Control
+            '.git', '.svn', '.hg', '.bzr',
+
+            # Python
+            '__pycache__', '.pytest_cache', '.mypy_cache', '.ruff_cache',
+            'venv', '.venv', 'env', '.env', '.tox',
+
+            # Node.js / JavaScript
+            'node_modules', 'bower_components',
+            '.next', '.nuxt', '.gatsby',
+
+            # Build directories
+            'dist', 'build', '_build', 'public/build',
+            'target', 'out', 'output',
+            'bin', 'obj',
+
+            # IDE and editors
+            '.idea', '.vscode', '.vs',
+            '.settings', '.project', '.classpath',
+
+            # Dependencies
+            'vendor', 'packages',
+
+            # Coverage and tests
+            'coverage', '.coverage', 'htmlcov',
+
+            # Mobile
+            'Pods', '.gradle',
+
+            # Misc
+            'tmp', 'temp', 'logs',
+            '.sass-cache', '.parcel-cache',
+            '.cargo', 'artifacts'
+        }
+
+        # Extensive list of file patterns to ignore
+        ignore_files = {
+            # Python
+            '*.pyc', '*.pyo', '*.pyd',
+            '*.so', '*.egg', '*.egg-info',
+
+            # JavaScript/Web
+            '*.min.js', '*.min.css',
+            '*.chunk.js', '*.chunk.css',
+            '*.bundle.js', '*.bundle.css',
+            '*.hot-update.*',
+
+            # Build artifacts
+            '*.o', '*.obj', '*.a', '*.lib',
+            '*.dll', '*.dylib', '*.so',
+            '*.exe', '*.bin',
+
+            # Logs and databases
+            '*.log', '*.logs',
+            '*.sqlite', '*.sqlite3', '*.db',
+            '*.mdb', '*.ldb',
+
+            # Package locks
+            'package-lock.json', 'yarn.lock',
+            'poetry.lock', 'Pipfile.lock',
+            'pnpm-lock.yaml', 'composer.lock',
+
+            # Environment and secrets
+            '.env', '.env.*', '*.env',
+            '.env.local', '.env.development',
+            '.env.test', '.env.production',
+            '*.pem', '*.key', '*.cert',
+
+            # Cache files
+            '.DS_Store', 'Thumbs.db',
+            '*.cache', '.eslintcache',
+            '*.swp', '*.swo',
+
+            # Documentation build
+            '*.pdf', '*.doc', '*.docx',
+
+            # Images and large media
+            '*.jpg', '*.jpeg', '*.png', '*.gif',
+            '*.ico', '*.svg', '*.woff', '*.woff2',
+            '*.ttf', '*.eot', '*.mp4', '*.mov',
+
+            # Archives
+            '*.zip', '*.tar', '*.gz', '*.rar',
+
+            # Generated sourcemaps
+            '*.map', '*.css.map', '*.js.map'
+        }
+
+        for root, dirs, filenames in os.walk(cwd, topdown=True):
+            # Skip ignored directories
+            dirs[:] = [d for d in dirs if d not in ignore_dirs]
+
+            for filename in filenames:
+                # Skip files matching ignore patterns
+                if any(fnmatch.fnmatch(filename, pattern) for pattern in ignore_files):
+                    continue
+
+                # Get relative path
+                rel_path = os.path.relpath(os.path.join(root, filename), cwd)
+
+                # Skip paths that contain any of the ignored directory names
+                # (handles nested cases like 'something/node_modules/something')
+                if any(ignored_dir in rel_path.split(os.sep) for ignored_dir in ignore_dirs):
+                    continue
+
+                files.append(rel_path)
+
+                if len(files) >= max_files:
+                    return files
+
+        return sorted(files)  # Sort for consistent ordering
+
+    @lru_cache
+    def get_all_dirs_in_cwd(self):
+        cwd = Path.cwd()
+        return [d.name for d in cwd.iterdir() if d.is_dir()]
+
+
+
+    async def on_key(self, event):
+        """Handle key press events."""
+        output_log = self._shelly_app.query_one("#output", CustomRichLog)
+        if event.key == "alt+enter" or event.key == "ctrl+enter":
+            content = self.text[self.last_submitted_position:].strip()
+            self.last_submitted_position = len(content)
+            if content.strip():
+                output_log.write(f"input: {content}")
+                self._shelly_app.process_input(content, output_log)
+                self.action_cursor_down()
+        else:
+            # Allow default key handling
+            await super()._on_key(event)
+
+
+class ContextSelectionList(SelectionList):
+    def __init__(self, *items, text_area: TextArea, id: str | None = None):
+        super().__init__(*items, id=id)
+        self.text_area = text_area
+    def on_key(self, event) -> None:
+        if event.key == "enter" and self.highlighted is not None:
+                selected_option = self.get_option_at_index(self.highlighted)
+                self.text_area.insert(str(selected_option.prompt))  # use highlighted instead of selected
+                self.text_area.action_cursor_down()
+                self.remove()
+        elif event.key == "escape":
+            self.remove()
+
+    #def on_click(self) -> None:
 
 class Alert(Message):
     def __init__(self, message: str) -> None:
@@ -172,6 +359,19 @@ def main():
         print(f"Error: {e}")
         return 1
     return 0
+
+'''
+async def main():
+    try:
+        shelly = Shelly()
+        await shelly.run_async()
+    except Exception as e:
+        print(f"Application error: {str(e)}")
+'''
+
+def main():
+    shelly = Shelly()
+    shelly.run()
 
 if __name__ == "__main__":
     main()

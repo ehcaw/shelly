@@ -4,10 +4,6 @@ from langchain.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
 from langchain.tools import Tool
 import os
-<<<<<<< HEAD
-import json
-=======
->>>>>>> c5f2d769e12b962bd4de42d265ca9835737a304c
 from dotenv import load_dotenv
 from pathlib import Path
 import logging

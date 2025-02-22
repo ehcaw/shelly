@@ -1,11 +1,12 @@
 from textual.widget import Widget
-from textual.widgets import Button, OptionList
+from textual.widgets import TextArea, Button, Input, OptionList
 from textual.widgets.option_list import Option
 from textual.app import ComposeResult
 from textual.containers import ScrollableContainer, Vertical, Horizontal, VerticalScroll
+from textual.binding import Binding
 from textual.message import Message
 from textual.reactive import var
-from textual import on
+from textual import on, events
 from textual.worker import Worker, WorkerState
 
 
@@ -22,6 +23,7 @@ from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass
 import asyncio
+
 
 
 class Chat(Widget):
@@ -115,10 +117,34 @@ class Chat(Widget):
                 yield scroll
 
     def on_mount(self) -> None:
+        # Ensure textual-autocomplete layer exists
         screen_layers = list(self.screen.styles.layers)
         if "selection-list" not in screen_layers:
             screen_layers.append("selection-list")
-        self.screen.styles.layers = screen_layers[0] if screen_layers else None
+        self.screen.styles.layers = tuple(screen_layers)
+
+    @on(TextArea.Changed)
+    async def on_input_changed(self, event: TextArea.Changed):
+        if not self.input_area:
+            return
+
+        # Get current content height
+        current_height = len(self.input_area.text.split('\n'))
+        current_is_multiline = current_height > 1
+
+        if current_is_multiline != self.multiline:
+            self.multiline = current_is_multiline
+            self.input_area.remove_class("singleline")
+            self.input_area.remove_class("multiline")
+            self.input_area.add_class("multiline" if current_is_multiline else "singleline")
+            self.refresh(layout=True)
+
+
+        cursor = self.input_area.cursor_location
+        if cursor is None:
+            return
+        current_line = self.input_area.document.get_line(cursor[0])
+
 
     @on(ChatInputArea.Submit)
     async def user_chat_message_submitted(self, event: ChatInputArea.Submit) -> None:
@@ -144,9 +170,6 @@ class Chat(Widget):
         messages = self.chat_history.load_conversation(message.chat_id)
         self.chat_header.watch_title(self.chat_history.get_conversation_name(message.chat_id))
         chatboxes = []
-        assert self.debug_log
-        self.debug_log.write('chat opened')
-        self.debug_log.write(messages)
         for msg in messages:
             chatbox = Chatbox(msg.content, is_ai=(msg._from == "ai"))
             chatboxes.append(chatbox)
@@ -221,11 +244,12 @@ class Chat(Widget):
         self.debug_log.write(processed_content)
         return processed_content
 
-
     async def chat(self, content: str):
         try:
+            # Create user message box
+            if self.debug_log:
+                self.debug_log.write("Creating user message\n")
             #Check if this is a new chat and create one
-            processed_content = self.process_content(content)
             if self.is_new_chat:
                 self.chat_history.add_conversation(content)
                 self.is_new_chat = False
@@ -233,7 +257,7 @@ class Chat(Widget):
                 option_list = self.chat_history.query_one(OptionList)
                 option_list.clear_options()
                 updated_options = self.chat_history._load_conversations()
-                option_list.add_options([Option(data["chat_name"], id=conv_id) for conv_id, data in updated_options.items()])
+                option_list.add_options([Option(data["chat_name"] if len(data["chat_name"]) < 40 else data["chat_name"][:40] + "...", id=conv_id) for conv_id, data in options.items()])
 
             user_box = Chatbox(content)
             assert self.chat_container is not None
@@ -253,11 +277,11 @@ class Chat(Widget):
             # Update state with user input
             self.state["messages"] = self.state["messages"] + [{
                 "role": "user",
-                "content": processed_content
+                "content": content
             }]
             self._app.zapper.add_user_input_to_summaries(content)
 
-            self.state["current_input"] = processed_content
+            self.state["current_input"] = content
             self.state["should_end"] = False
 
             # Process through graph
@@ -335,6 +359,8 @@ class Chat(Widget):
                 self.debug_log.write(f"Error in summarization: {str(e)}\n")
 
     async def mount_chat_boxes(self, boxes: list[Chatbox]):
+        if self.debug_log:
+            self.debug_log.write(f"Mounting {len(boxes)} messages\n")
         assert self.chat_container
 
         for box in boxes:
