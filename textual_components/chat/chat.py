@@ -119,9 +119,6 @@ class Chat(Widget):
     def on_mount(self) -> None:
         # Ensure textual-autocomplete layer exists
         screen_layers = list(self.screen.styles.layers)
-        if "selection-list" not in screen_layers:
-            screen_layers.append("selection-list")
-        self.screen.styles.layers = tuple(screen_layers)
 
     @on(TextArea.Changed)
     async def on_input_changed(self, event: TextArea.Changed):
@@ -227,6 +224,7 @@ class Chat(Widget):
         # Split content into lines first
         lines = content.splitlines()
         i = 0
+        assert self.debug_log
         while i < len(lines):
             line = lines[i]
             split_line = line.split()

@@ -10,13 +10,12 @@ from textual.reactive import var
 from textual.widget import Widget
 from textual.widgets import Button, OptionList, Static
 from textual.widgets.option_list import Option
-from textual.containers import Vertical, Horizontal
+from textual.containers import Vertical
 from pathlib import Path
 from shortuuid import uuid
 
 import json
 import os
-from pathlib import Path
 
 from .footer import CommandFooter, Command, Field
 
@@ -168,7 +167,7 @@ class ChatHistory(Widget):
             else:
                 index = {}
             conv_file_path = Path(self.conversation_path) / f"{conv_id}.json"
-            path = Path(self.conversation_path + f"/{conv_id}.json")
+            path = Path(str(self.conversation_path) + f"/{conv_id}.json")
             index[conv_id] = {"path": str(path), "chat_name": name, "timestamp": str(datetime.now())} #ConversationIndex(str(path), str(name), str(datetime.now()))
             new_conversation = {
                 "id": conv_id,
