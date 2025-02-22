@@ -15,6 +15,8 @@ from pathlib import Path
 from shortuuid import uuid
 
 import json
+import os
+from pathlib import Path
 
 from .footer import CommandFooter, Command, Field
 
@@ -49,8 +51,9 @@ class ChatHistory(Widget):
 
     def __init__(self):
         super().__init__()
-        self.index_path = "./conversations/index.json"
-        self.conversation_path = "./conversations"
+        self.app_dir = Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        self.index_path = self.app_dir / "conversations/index.json"
+        self.conversation_path = self.app_dir / "conversations"
         self.current_chat_id = ""
         self.is_new_chat = True
         self.index = self._load_index()

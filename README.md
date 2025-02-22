@@ -15,6 +15,12 @@
    ./install.sh
    ```
 
-3. Verify installation:
-   ```bash
-   shelly --version
+3. Create an .env file and place your Groq API Key:
+    ```bash
+      GROQ_API_KEY="YOUR_API_KEY_HERE"
+    ```
+
+4. Launch shelly as such:
+    ```bash
+    shelly
+    ```
