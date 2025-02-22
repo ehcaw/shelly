@@ -137,6 +137,10 @@ class Chat(Widget):
         if cursor is None:
             return
 
+    def on_mount(self):
+        chat = self.query_one(ChatInputArea)
+        chat.focus()
+
 
     @on(ChatInputArea.Submit)
     async def user_chat_message_submitted(self, event: ChatInputArea.Submit) -> None:
