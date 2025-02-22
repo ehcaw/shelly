@@ -1,0 +1,252 @@
+$main-lighten-2: #9061F9;
+$main-lighten-1: #7E3AF2;
+$main: #6C2BD9;
+$main-darken-1: #5521B5;
+$main-darken-2: #4A1D96;
+
+$left-border-trim: vkey $main-lighten-2 15%;
+
+* {
+  scrollbar-color: $panel;
+  scrollbar-color-hover: $main-lighten-1 40%;
+  scrollbar-color-active: $main-darken-1;
+  scrollbar-background-active: $background;
+  scrollbar-background-hover: $background;
+}
+
+Chat {
+    width: 100%;
+    height: 100%;
+    layers: base overlay selection-list;
+
+Chat > VerticalScroll {
+    border-left: $left-border-trim;
+    overflow-y: auto;
+    height: auto;
+    min-height: 1fr;
+    width: 100%;
+    padding: 1;
+    padding-top: 3;
+    margin-top: 3;  /* Add space for input area */
+    overflow: scroll;
+}
+
+ChatInputArea {
+  color: white;
+  height: auto;
+  overflow-y: auto;
+}
+#chat-input-text-container {
+  height: auto;
+  width: 100%;
+}
+
+
+#chat-input-container {
+    dock: top;
+    position: relative;  /* Make it float over content */
+    margin-top: 0;
+    border-left: $left-border-trim;
+    background: $background;
+    height: auto;
+    min-height: 3;
+    padding: 1 2;
+    overflow-y: scroll;
+}
+
+#chat-input {
+  box-sizing: border-box;
+}
+
+ChatHeader {
+  width: 1fr;
+  height: auto;
+  padding: 1 2;
+  background: $background 50%;
+  border-left: $left-border-trim;
+  margin: 1;
+}
+
+ChatHeader > Static {
+  width: auto;
+}
+
+ChatHeader #title-static {
+  text-style: bold;
+}
+
+ChatHeader #model-static {
+  color: $text-muted;
+}
+
+ChatHeader > Horizontal {
+  width: 1fr;
+}
+
+ChatHeader Vertical {
+  width: 1fr;
+}
+
+#chat-app {
+    width: 100%;
+    height: 100%;
+}
+
+#sidebar {
+    width: 25%;
+    height: 100%;
+    border-right: solid $primary;
+}
+
+/* Style the option list */
+OptionList {
+    width: 100%;
+    min-width: 30;  /* Ensure minimum width for options */
+    padding: 0 1;
+}
+
+/* Style individual options */
+Option {
+    width: 100%;
+    padding: 1 2;  /* Add more padding */
+    height: auto;  /* Allow height to adjust to content */
+    background: $surface;
+}
+
+Option:hover {
+    background: $accent;
+}
+
+Option > .option-label {
+    width: 100%;
+    min-height: 1;
+}
+
+#main-chat-area {
+    width: 75%;
+    height: 100%;
+    margin-left: 1;
+}
+
+
+#chat-input-text-container {
+    height: auto;
+    align: center middle;
+}
+
+IsTyping {
+  dock: top;
+  display: none;
+  color: $text;
+  height: 1;
+  align-horizontal: right;
+}
+
+IsTyping Label {
+  width: auto;
+}
+
+IsTyping LoadingIndicator {
+  width: 11;
+  color: $main;
+}
+
+#command_input {
+  min-height: 4;
+}
+
+
+ChatboxContainer {
+  width: 100%;
+  height: auto;
+  align: left top;
+  padding-right: 5;
+  min-height: 1;
+}
+
+ChatboxContainer.assistant-message {
+  padding-left: 5;
+  padding-right: 5;
+}
+
+Chatbox {
+  color: $text;
+  background: $main 50%;
+  height: auto;
+  margin: 1 2;
+  padding: 1 2 1 1;
+  box-sizing: border-box;
+  min-height: 3;
+}
+
+Chatbox:focus {
+  border-left: thick $main-lighten-2;
+}
+
+Chatbox.assistant-message {
+  background: $panel 80%;
+}
+
+
+Input .input--cursor {
+  color: $main-lighten-2;
+}
+
+Input {
+  border: tall $main-lighten-1 25%;
+}
+
+Input:focus {
+  border: tall $main;
+}
+
+
+Tabs:focus .underline--bar {
+  color: $text 35%;
+}
+
+TokenAnalysis {
+  height: auto;
+}
+
+#inner-container ContentSwitcher {
+  height: auto;
+  padding: 2 4;
+}
+
+#inner-container #markdown-content {
+  height: auto;
+}
+
+#inner-container #metadata {
+  height: auto;
+}
+
+.multiline {
+    height: auto;
+}
+
+.singleline {
+  height: 3;
+}
+
+.autocomplete--dropdown {
+    max-height: 5;
+    background: $surface;
+    border: solid $accent;
+}
+
+ContextSelectionList {
+    layer: selection-list;
+    width: auto;
+    min-width: 30;
+    height: auto;
+    max-height: 10;
+    background: $surface;
+    border: solid $accent;
+    padding: 0 1;
+    position: absolute;
+    dock: top;
+}
+
+}
