@@ -1,7 +1,7 @@
 $main-lighten-2: #9061F9;
-$main-lighten-1: #7E3AF2;
-$main: #6C2BD9;
-$main-darken-1: #5521B5;
+$main-lighten-1: #272932;
+$main: #19323C;
+$main-darken-1: #0F7173;
 $main-darken-2: #4A1D96;
 
 $left-border-trim: vkey $main-lighten-2 15%;

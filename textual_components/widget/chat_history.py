@@ -166,9 +166,9 @@ class ChatHistory(Widget):
                 f.close()
             else:
                 index = {}
-            conv_file_path = Path(self.conversation_path) / f"{conv_id}.json"
-            path = Path(str(self.conversation_path) + f"/{conv_id}.json")
-            index[conv_id] = {"path": str(path), "chat_name": name, "timestamp": str(datetime.now())} #ConversationIndex(str(path), str(name), str(datetime.now()))
+            relative_path = f"conversations/{conv_id}.json"
+            conv_file_path = self.app_dir / relative_path
+            index[conv_id] = {"path": relative_path, "chat_name": name, "timestamp": str(datetime.now())}
             new_conversation = {
                 "id": conv_id,
                 "name": name,
@@ -191,7 +191,7 @@ class ChatHistory(Widget):
         conversation_index = self.index[conversation_id]
         if not conversation_index:
             return False
-        file_path = conversation_index["path"]
+        file_path = self.app_dir / conversation_index["path"]
         with open(file_path, 'r') as f:
             conversation = json.load(f)
         message_dict = {
@@ -251,7 +251,7 @@ class ChatHistory(Widget):
         conversation_index = self.index[conversation_id]
         self.current_chat_id = conversation_id
         if not conversation_index: return {}
-        file_path = Path(conversation_index["path"])
+        file_path = self.app_dir / conversation_index["path"]
         try:
             with open(file_path, 'r') as f:
                 contents = json.load(f)
@@ -264,7 +264,7 @@ class ChatHistory(Widget):
         conversation_index = self.index[conversation_id]
         if not conversation_index:
             return "Untitled chat"
-        file_path = Path(conversation_index["path"])
+        file_path = Path(str(self.app_dir) + "/" + conversation_index["path"])
         try:
             with open(file_path, 'r') as f:
                 contents = json.load(f)

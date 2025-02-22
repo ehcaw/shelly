@@ -11,7 +11,7 @@
 
 2. Run the installation script:
    ```bash
-   chmod +x install.shj
+   chmod +x install.sh launch.sh
    ./install.sh
    ```
 

@@ -116,10 +116,6 @@ class Chat(Widget):
                 self.chat_container = scroll
                 yield scroll
 
-    def on_mount(self) -> None:
-        # Ensure textual-autocomplete layer exists
-        screen_layers = list(self.screen.styles.layers)
-
     @on(TextArea.Changed)
     async def on_input_changed(self, event: TextArea.Changed):
         if not self.input_area:
@@ -140,7 +136,6 @@ class Chat(Widget):
         cursor = self.input_area.cursor_location
         if cursor is None:
             return
-        current_line = self.input_area.document.get_line(cursor[0])
 
 
     @on(ChatInputArea.Submit)
@@ -165,6 +160,7 @@ class Chat(Widget):
         if self.chat_container:
             self.chat_container.remove_children()
         messages = self.chat_history.load_conversation(message.chat_id)
+        self.debug_log.write(messages)
         self.chat_header.watch_title(self.chat_history.get_conversation_name(message.chat_id))
         chatboxes = []
         for msg in messages:
@@ -255,7 +251,7 @@ class Chat(Widget):
                 option_list = self.chat_history.query_one(OptionList)
                 option_list.clear_options()
                 updated_options = self.chat_history._load_conversations()
-                option_list.add_options([Option(data["chat_name"] if len(data["chat_name"]) < 40 else data["chat_name"][:40] + "...", id=conv_id) for conv_id, data in options.items()])
+                option_list.add_options([Option(data["chat_name"] if len(data["chat_name"]) < 40 else data["chat_name"][:40] + "...", id=conv_id) for conv_id, data in updated_options.items()])
 
             user_box = Chatbox(content)
             assert self.chat_container is not None
