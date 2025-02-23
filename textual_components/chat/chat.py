@@ -6,7 +6,8 @@ from textual.containers import ScrollableContainer, Vertical, Horizontal, Vertic
 from textual.binding import Binding
 from textual.message import Message
 from textual.reactive import var
-from textual import on, events
+from textual import on, events, work
+from textual.events import Key
 from textual.worker import Worker, WorkerState
 
 
@@ -14,15 +15,21 @@ from langchain.schema import BaseMessage, HumanMessage, AIMessage
 from langchain.prompts import ChatPromptTemplate
 
 from ..widget.chatbox import Chatbox, ChatboxContainer
+from ..commands.file_search import SlashCommandPopup
 from ..widget.chat_header import ChatHeader
 from ..widget.typing_indicator import IsTyping
 from ..widget.chat_history import ChatHistory, MessageClass
+from ..commands.file_search import SlashCommandPopup
+from ..commands.autocomplete import AutoComplete, Dropdown, DropdownItem
 from ..chat.chat_input_area import ChatInputArea
 
 from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass
+from typing import List
+import os
 import asyncio
+from functools import lru_cache
 
 
 
@@ -45,6 +52,7 @@ class Chat(Widget):
             ("user", "{input}"),
             ("user", "Here are previous messages you should use for context: {context}"),
         ])
+
 
     allow_input_submit = var(True)
     """Used to lock the chat input while the agent is responding."""
@@ -116,31 +124,12 @@ class Chat(Widget):
                 self.chat_container = scroll
                 yield scroll
 
-    @on(TextArea.Changed)
-    async def on_input_changed(self, event: TextArea.Changed):
-        if not self.input_area:
-            return
-
-        # Get current content height
-        current_height = len(self.input_area.text.split('\n'))
-        current_is_multiline = current_height > 1
-
-        if current_is_multiline != self.multiline:
-            self.multiline = current_is_multiline
-            self.input_area.remove_class("singleline")
-            self.input_area.remove_class("multiline")
-            self.input_area.add_class("multiline" if current_is_multiline else "singleline")
-            self.refresh(layout=True)
-
-
-        cursor = self.input_area.cursor_location
-        if cursor is None:
-            return
-
-    def on_mount(self):
-        chat = self.query_one(ChatInputArea)
-        chat.focus()
-
+    def on_mount(self) -> None:
+        # Ensure textual-autocomplete layer exists
+        screen_layers = list(self.screen.styles.layers)
+        if "selection-list" not in screen_layers:
+            screen_layers.append("selection-list")
+        self.screen.styles.layers = tuple(screen_layers)
 
     @on(ChatInputArea.Submit)
     async def user_chat_message_submitted(self, event: ChatInputArea.Submit) -> None:

@@ -76,7 +76,7 @@ class ChatHistory(Widget):
                     )
                 )
                 self.option_list = OptionList(
-                    *[Option(data["chat_name"] if len(data["chat_name"]) < 40 else data["chat_name"][:40] + "...", id=conv_id) for conv_id, data in self.options.items()],
+                    *[Option(data["chat_name"] if len(data["chat_name"]) < 40 else data["chat_name"][:40 ] + "...", id=conv_id) for conv_id, data in self.options.items()],
                     id="cl-option-list",
                 )
                 yield self.option_list
