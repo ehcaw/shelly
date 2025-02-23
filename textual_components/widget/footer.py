@@ -1,6 +1,7 @@
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union, Type
 from dataclasses import dataclass
 import inspect
+import logging
 
 from textual.widgets import Footer, Input, Label
 from textual.containers import Horizontal, Vertical
@@ -9,17 +10,15 @@ from textual.reactive import reactive, Reactive
 from textual.message import Message
 from textual.app import RenderResult
 
-
 @dataclass
 class Field:
     name: str
-    type: Any
+    type: Type
     has_spaces: bool = False
     value: str = ""
 
     def __str__(self) -> str:
         return f"<{self.name}: {self.type.__name__}>"
-
 
 @dataclass
 class Command:
@@ -27,6 +26,12 @@ class Command:
     fields: Tuple[Field, ...]
     on_submit: callable
 
+    def validate_on_submit(self, values: Tuple[Any, ...]) -> None:
+        # Validate that on_submit is a callable that can be called with the extracted values
+        if not callable(self.on_submit):
+            raise ValueError("on_submit must be a callable")
+        if len(values) != len(self.fields):
+            raise ValueError("Number of values does not match number of fields")
 
 class CommandFooter(Footer):
     """A custom footer widget that handles commands with input fields."""
@@ -74,7 +79,7 @@ class CommandFooter(Footer):
             return " ".join(ans)
         return None
 
-    def _extract_values(self, *args: str) -> Optional[tuple]:
+    def _extract_values(self, *args: str) -> Optional[Tuple[Any, ...]]:
         """Extract and convert input values according to field types."""
         if not args or args[0] is None or not self.command:
             return None
@@ -99,7 +104,8 @@ class CommandFooter(Footer):
                         values.append(field.type(value))
 
             return tuple(reversed(values))
-        except (ValueError, IndexError):
+        except (ValueError, IndexError) as e:
+            logging.error(f"Error extracting values: {e}")
             return None
 
     def update(self, command: Optional[Command]) -> None:
@@ -157,11 +163,11 @@ class CommandFooter(Footer):
             callback = self.command.on_submit
             tokens = message.value.split()
             if values := self._extract_values(*tokens):
+                self.command.validate_on_submit(values)
                 result = callback(values)
                 if inspect.iscoroutine(result):
                     await result
         except Exception as e:
-            # You might want to handle or log the error here
-            print(f"Error processing command: {e}")
+            logging.error(f"Error processing command: {e}")
 
         self.command = None

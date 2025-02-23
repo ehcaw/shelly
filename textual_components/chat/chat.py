@@ -100,7 +100,7 @@ class Chat(Widget):
             with Vertical(id="sidebar"):
                 self.chat_header = ChatHeader(self)
                 yield self.chat_header
-                chat_history = ChatHistory()
+                chat_history = ChatHistory(self)
                 self.chat_history = chat_history
                 yield chat_history
 

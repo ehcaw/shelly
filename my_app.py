@@ -20,6 +20,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from textual_components.chat.chat import Chat
+from textual_components.widget.footer import CommandFooter
 from agents.zapper import Zapper
 
 
@@ -105,6 +106,7 @@ class Shelly(App):
                 yield Chat(
                     app=self
                 )
+                yield CommandFooter()
 
             # Right side - Your existing components
             with Vertical(id="right_panel"):

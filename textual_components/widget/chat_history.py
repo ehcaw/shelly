@@ -11,11 +11,13 @@ from textual.widget import Widget
 from textual.widgets import Button, OptionList, Static
 from textual.widgets.option_list import Option
 from textual.containers import Vertical
+
+
 from pathlib import Path
 from shortuuid import uuid
-
 import json
 import os
+from functools import lru_cache
 
 from .footer import CommandFooter, Command, Field
 
@@ -48,9 +50,10 @@ class ChatHistory(Widget):
     current_chat_id: var[str | None] = var(None)
     index: Dict[str, ConversationIndex]
 
-    def __init__(self):
+    def __init__(self, app):
         super().__init__()
         self.app_dir = Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        self._app = app
         self.index_path = self.app_dir / "conversations/index.json"
         self.conversation_path = self.app_dir / "conversations"
         self.current_chat_id = ""
@@ -72,11 +75,11 @@ class ChatHistory(Widget):
                         "Chat History",
                     )
                 )
-                option_list = OptionList(
+                self.option_list = OptionList(
                     *[Option(data["chat_name"] if len(data["chat_name"]) < 40 else data["chat_name"][:40] + "...", id=conv_id) for conv_id, data in self.options.items()],
                     id="cl-option-list",
                 )
-                yield option_list
+                yield self.option_list
 
            # with Horizontal(id="cl-button-container"):
                 yield Button("New Chat", id="cl-new-chat-button")
@@ -107,19 +110,26 @@ class ChatHistory(Widget):
     def action_delete_conversation(self):
         if self.current_chat_id:
             footer: CommandFooter = self.app.query_one(CommandFooter)
+            print("Footer found:", footer)  # Debug print
+
             if footer.command:
-                return
-
-            def delete_chat(values):
-                confirm: bool = values[0]
-                if confirm:
-
-                    self.current_chat_id = None
-                self.query_one(OptionList).focus()
+                print("Existing command found, returning")  # Debug print
 
             fields = (Field("yes/no", bool),)
-            footer.command = Command("Delete this Chat?", fields, delete_chat)
+            footer.command = Command("Delete this Chat?", fields, self.delete_conversation(self.current_chat_id))
+            print("Command set:", footer.command)  # Debug print
+
             self.screen.set_focus(footer)
+            print("Focus set to footer")  # Debug print
+            self.options = self._load_conversations()
+
+            self.option_list.clear_options()
+            # Add new options
+            for conv_id, data in self.options.items():
+                display_name = data["chat_name"] if len(data["chat_name"]) < 40 else data["chat_name"][:40] + "..."
+                self.option_list.add_option(Option(display_name, id=conv_id))
+            self._app.chat_container.remove_children()
+            self.refresh(layout=True)
 
     # REDO THIS METHOD THIS IS SHIT
     def delete_conversation(self, conversation_id: str) -> bool:
@@ -135,10 +145,10 @@ class ChatHistory(Widget):
             file_path.unlink()
         except FileNotFoundError:
             pass
-        del self.index[conversation_id]
+        assert index
+        del index[conversation_id]
         with open(self.index_path, 'w') as f:
             json.dump(index, f, indent=4)
-
         return True
 
     # REDO THIS METHOD THIS IS SHIT
@@ -247,6 +257,7 @@ class ChatHistory(Widget):
             fr.close()
         return True
 
+    @lru_cache
     def load_conversation(self, conversation_id: str):
         conversation_index = self.index[conversation_id]
         self.current_chat_id = conversation_id
