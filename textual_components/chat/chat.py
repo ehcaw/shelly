@@ -225,17 +225,50 @@ class Chat(Widget):
         lines = content.splitlines()
         i = 0
         assert self.debug_log
+        
         while i < len(lines):
             line = lines[i]
             split_line = line.split()
             self.debug_log.write(split_line)
 
-            if line.startswith("@file") and len(split_line) == 2:
-                file_contents = Path(split_line[1]).read_text(encoding='utf-8')
-                lines[i] = file_contents  # Replace the line with file contents
-                i += len(file_contents.splitlines())  # Skip over the inserted content
-            else:
-                i += 1
+            if len(split_line) == 2:
+                if line.startswith(":f "):  # File command
+                    try:
+                        file_path = Path(split_line[1])
+                        if file_path.is_file():
+                            file_contents = file_path.read_text(encoding='utf-8')
+                            lines[i] = f"# File: {file_path}\n{file_contents}"
+                            i += len(file_contents.splitlines()) + 1  # +1 for the header
+                        else:
+                            lines[i] = f"# Error: File not found - {file_path}"
+                    except Exception as e:
+                        lines[i] = f"# Error reading file: {str(e)}"
+                    
+                elif line.startswith(":d "):  # Directory command
+                    try:
+                        dir_path = Path(split_line[1])
+                        if dir_path.is_dir():
+                            dir_contents = []
+                            dir_contents.append(f"# Directory contents of: {dir_path}")
+                            for file_path in dir_path.rglob('*'):
+                                if (file_path.is_file() and 
+                                    not any(ignore in str(file_path) for ignore in ['.git', '__pycache__', 'node_modules']) and
+                                    file_path.suffix.lower() in ['.py', '.js', '.jsx', '.ts', '.tsx', '.java', '.cpp', '.h', '.rs', '.go']):
+                                    try:
+                                        file_contents = file_path.read_text(encoding='utf-8')
+                                        dir_contents.append(f"\n# File: {file_path.relative_to(dir_path)}\n{file_contents}")
+                                    except (UnicodeDecodeError, PermissionError):
+                                        continue
+                            if len(dir_contents) > 1:  # If we found any files
+                                lines[i] = '\n'.join(dir_contents)
+                                i += len(dir_contents)
+                            else:
+                                lines[i] = f"# No readable source files found in directory: {dir_path}"
+                        else:
+                            lines[i] = f"# Error: Directory not found - {dir_path}"
+                    except Exception as e:
+                        lines[i] = f"# Error reading directory: {str(e)}"
+            i += 1
 
         # Join the lines back into a single string
         processed_content = '\n'.join(lines)

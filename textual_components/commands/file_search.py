@@ -5,6 +5,7 @@ from textual import on
 from textual.message import Message
 from typing import List, Optional
 import os
+import fnmatch
 
 class SlashCommandItem(Static):
     """Individual command item in the list"""
@@ -82,41 +83,130 @@ class SlashCommandPopup(Container):
 
     def __init__(self, text_area):
         super().__init__()
+        self.directorySearch = False
         self.text_area = text_area
         self.search_input = Input(placeholder="Search files...", classes="search-input")
         self.items_container = Container(classes="items-container")
         self.items: List[SlashCommandItem] = []
         self.selected_index: Optional[int] = None
+        
+        # Define ignore patterns
+        self.ignore_dirs = {
+            # Version Control
+            '.git', '.svn', '.hg', '.bzr',
+            
+            # Python
+            '__pycache__', '.pytest_cache', '.mypy_cache', '.ruff_cache',
+            'venv', '.venv', 'env', '.env', '.tox',
+            
+            # Node.js / JavaScript
+            'node_modules', 'bower_components',
+            '.next', '.nuxt', '.gatsby',
+            
+            # Build directories
+            'dist', 'build', '_build', 'public/build',
+            'target', 'out', 'output',
+            'bin', 'obj',
+            
+            # IDE and editors
+            '.idea', '.vscode', '.vs',
+            '.settings', '.project', '.classpath',
+            
+            # Dependencies
+            'vendor', 'packages',
+            
+            # Coverage and tests
+            'coverage', '.coverage', 'htmlcov',
+            
+            # Mobile
+            'Pods', '.gradle',
+            
+            # Misc
+            'tmp', 'temp', 'logs',
+            '.sass-cache', '.parcel-cache',
+            '.cargo', 'artifacts'
+        }
+        
+        self.ignore_files = {
+            # Python
+            '*.pyc', '*.pyo', '*.pyd',
+            '*.so', '*.egg', '*.egg-info',
+            
+            # JavaScript/Web
+            '*.min.js', '*.min.css',
+            '*.chunk.js', '*.chunk.css',
+            '*.bundle.js', '*.bundle.css',
+            '*.hot-update.*',
+            
+            # Build artifacts
+            '*.o', '*.obj', '*.a', '*.lib',
+            '*.dll', '*.dylib', '*.so',
+            '*.exe', '*.bin',
+            
+            # Logs and databases
+            '*.log', '*.logs',
+            '*.sqlite', '*.sqlite3', '*.db',
+            '*.mdb', '*.ldb',
+            
+            # Package locks
+            'package-lock.json', 'yarn.lock',
+            'poetry.lock', 'Pipfile.lock',
+            'pnpm-lock.yaml', 'composer.lock',
+            
+            # Environment and secrets
+            '.env', '.env.*', '*.env',
+            '.env.local', '.env.development',
+            '.env.test', '.env.production',
+            '*.pem', '*.key', '*.cert',
+            
+            # Cache files
+            '.DS_Store', 'Thumbs.db',
+            '*.cache', '.eslintcache',
+            '*.swp', '*.swo',
+            
+            # Documentation build
+            '*.pdf', '*.doc', '*.docx',
+            
+            # Images and large media
+            '*.jpg', '*.jpeg', '*.png', '*.gif',
+            '*.ico', '*.svg', '*.woff', '*.woff2',
+            '*.ttf', '*.eot', '*.mp4', '*.mov',
+            
+            # Archives
+            '*.zip', '*.tar', '*.gz', '*.rar',
+            
+            # Generated sourcemaps
+            '*.map', '*.css.map', '*.js.map'
+        }
+        
         self._cached_files = self._get_files()
 
     def _get_files(self, max_files: int = 100) -> List[str]:
-        """Get filtered list of files from current directory"""
-        ignore_patterns = {
-            # Directories to ignore
-            '.git', '__pycache__', 'node_modules', 'venv', '.env',
-            # File patterns to ignore
-            '*.pyc', '*.pyo', '*.pyd', '*.so', '*.dll',
-            '*.exe', '*.bin', '*.obj', '*.cache',
-            # Add more patterns as needed
-        }
-
+        """Get filtered list of files or directories from current directory"""
         files = []
         cwd = os.getcwd()
 
         for root, dirs, filenames in os.walk(cwd, topdown=True):
-            # Filter out ignored directories
-            dirs[:] = [d for d in dirs if d not in ignore_patterns]
+            # Skip ignored directories
+            dirs[:] = [d for d in dirs if d not in self.ignore_dirs]
+            
+            if self.directorySearch:
+                # In directory mode, ONLY add directories (not files)
+                # Only process the current level's directories
+                if root == cwd:  # Only show top-level directories initially
+                    for dir_name in dirs:
+                        rel_path = os.path.relpath(os.path.join(root, dir_name), cwd)
+                        files.append(rel_path + os.sep)  # Add separator to indicate directory
+            else:
+                # Regular file mode - only show files
+                for filename in filenames:
+                    if any(fnmatch.fnmatch(filename, pattern) for pattern in self.ignore_files):
+                        continue
+                    rel_path = os.path.relpath(os.path.join(root, filename), cwd)
+                    files.append(rel_path)
 
-            for filename in filenames:
-                # Skip ignored file patterns
-                if any(filename.endswith(pat.replace('*', '')) for pat in ignore_patterns):
-                    continue
-
-                rel_path = os.path.relpath(os.path.join(root, filename), cwd)
-                files.append(rel_path)
-
-                if len(files) >= max_files:
-                    return sorted(files)
+            if len(files) >= max_files:
+                return sorted(files)
 
         return sorted(files)
 

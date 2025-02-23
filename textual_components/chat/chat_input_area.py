@@ -64,19 +64,23 @@ class ChatInputArea(TextArea):
             return
 
         current_line = self.document.get_line(cursor[0])
-        # Only show for /file command and when there's a space after it
-        if str("@file") in current_line and cursor[1] - (current_line.index("@file")+5) == 1:
-            # Remove any existing popup
-            existing = self.query("SlashCommandPopup")
-            for widget in existing:
-                widget.remove()
+        
+        # Check for colon commands
+        if current_line.startswith(':'):
+            command = current_line[1:2].lower()  # Get first character after colon
+            if command in ['f', 'd'] and (len(current_line) == 2 or current_line[2] == ' '):
+                # Remove any existing popup
+                existing = self.query("SlashCommandPopup")
+                for widget in existing:
+                    widget.remove()
 
-            # Create new popup
-            popup = SlashCommandPopup(self)
-            self.styles.height="25"
-            await self.mount(popup)
-        else:
-            self.reset_height()
+                # Create new popup with appropriate mode
+                popup = SlashCommandPopup(self)
+                popup.directorySearch = (command == 'd')
+                self.styles.height = "25"
+                await self.mount(popup)
+            else:
+                self.reset_height()
 
     @on(Key)
     def on_key(self, event: Key) -> None:
