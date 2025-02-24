@@ -81,9 +81,9 @@ class SlashCommandPopup(Container):
             super().__init__()
             self.value = value
 
-    def __init__(self, text_area):
+    def __init__(self, text_area, get_directories: bool = True):
         super().__init__()
-        self.directorySearch = False
+        self.directorySearch = get_directories
         self.text_area = text_area
         self.search_input = Input(placeholder="Search files...", classes="search-input")
         self.items_container = Container(classes="items-container")
@@ -183,7 +183,7 @@ class SlashCommandPopup(Container):
 
     def _get_files(self, max_files: int = 100) -> List[str]:
         """Get filtered list of files or directories from current directory"""
-        files = []
+        items = []
         cwd = os.getcwd()
 
         for root, dirs, filenames in os.walk(cwd, topdown=True):
@@ -191,24 +191,22 @@ class SlashCommandPopup(Container):
             dirs[:] = [d for d in dirs if d not in self.ignore_dirs]
             
             if self.directorySearch:
-                # In directory mode, ONLY add directories (not files)
-                # Only process the current level's directories
-                if root == cwd:  # Only show top-level directories initially
-                    for dir_name in dirs:
-                        rel_path = os.path.relpath(os.path.join(root, dir_name), cwd)
-                        files.append(rel_path + os.sep)  # Add separator to indicate directory
+                # Only add directories
+                for dir_name in dirs:
+                    rel_path = os.path.relpath(os.path.join(root, dir_name), cwd)
+                    items.append(rel_path + os.sep)  # Add separator to indicate directory
             else:
-                # Regular file mode - only show files
+                # Only add files
                 for filename in filenames:
                     if any(fnmatch.fnmatch(filename, pattern) for pattern in self.ignore_files):
                         continue
                     rel_path = os.path.relpath(os.path.join(root, filename), cwd)
-                    files.append(rel_path)
+                    items.append(rel_path)
 
-            if len(files) >= max_files:
-                return sorted(files)
+            if len(items) >= max_files:
+                return sorted(items)
 
-        return sorted(files)
+        return sorted(items)
 
     def compose(self) -> ComposeResult:
         yield self.search_input

@@ -75,8 +75,10 @@ class ChatInputArea(TextArea):
                     widget.remove()
 
                 # Create new popup with appropriate mode
-                popup = SlashCommandPopup(self)
-                popup.directorySearch = (command == 'd')
+                if command == 'f':
+                    popup = SlashCommandPopup(self, get_directories=False)  # For files
+                elif command == 'd':
+                    popup = SlashCommandPopup(self, get_directories=True)  # For directories
                 self.styles.height = "25"
                 await self.mount(popup)
             else:
