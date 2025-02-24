@@ -1,4 +1,6 @@
-from textual.widgets import TextArea
+from textual.widget import Widget
+from textual.widgets import TextArea, RichLog, Input, OptionList
+from textual.containers import ScrollableContainer, Vertical, VerticalScroll
 from textual.binding import Binding
 from textual.message import Message
 from textual import on, events
@@ -6,13 +8,12 @@ from textual.css.query import NoMatches
 from textual.events import Key
 #from textual_autocomplete import AutoComplete, Dropdown, DropdownItem, InputState
 
-from ..commands.file_search import SlashCommandPopup
-#from ..commands.autocomplete import AutoComplete, Dropdown, DropdownItem, SlashCommandInput
+from textual_components.commands.file_search import SlashCommandPopup
 
 from typing import List
 import os
-from functools import lru_cache
 from dataclasses import dataclass
+from functools import lru_cache
 
 @dataclass
 class InputState:
@@ -53,10 +54,6 @@ class ChatInputArea(TextArea):
         super()._on_focus(event)
         self.chat.scroll_to_latest_message()
 
-    def reset_height(self):
-        self.styles.height = "auto"
-
-
     @on(TextArea.Changed)
     async def on_input_changed(self, event: TextArea.Changed):
         cursor = self.cursor_location
@@ -73,19 +70,22 @@ class ChatInputArea(TextArea):
 
             # Create new popup
             popup = SlashCommandPopup(self)
-            self.styles.height="25"
+            self.styles.height = "25"
             await self.mount(popup)
-        else:
-            self.reset_height()
 
     @on(Key)
     def on_key(self, event: Key) -> None:
         try:
+            self.chat.debug_log.write(event.key)
+            if event.key in ("ctrl+enter", "shift+enter"):
+                self.post_message(ChatInputArea.Submit(self))
+                return
             if self.query_one("SlashCommandPopup") and event.key == "enter":
                 popup = self.query_one("SlashCommandPopup")
                 popup.confirm_selection()
-                self.action_cursor_down()
                 event.prevent_default()
+                self.styles.height = "auto"
+                return
         except NoMatches:
             pass
 

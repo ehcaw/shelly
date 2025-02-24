@@ -215,7 +215,7 @@ class SimpleChat:
             line = line.strip()
             if not line:
                 continue
-            if line.startswith("/file "):
+            if line.startswith("@file "):
                 processed_lines = self.add_file(line, processed_lines)
             elif line.startswith("/dir "):
                 processed_lines = self.add_directory(line, processed_lines)

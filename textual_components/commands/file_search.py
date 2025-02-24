@@ -37,11 +37,12 @@ class SlashCommandItem(Static):
         self.remove_class("selected")
 
 class SlashCommandPopup(Container):
+    """Main slash command component"""
+
     DEFAULT_CSS = """
     SlashCommandPopup {
         width: 100%;
         height: auto;
-        max-height: 25;  /* Limit the total height */
         background: $panel;
         border: solid $primary;
         padding: 1;
@@ -55,7 +56,7 @@ class SlashCommandPopup(Container):
 
     .items-container {
         height: auto;
-        max-height: 15;  /* Adjust this value to control visible items */
+        max-height: 20;
         overflow-y: auto;
     }
 
@@ -145,30 +146,6 @@ class SlashCommandPopup(Container):
 
         self.selected_index = 0 if self.items else None
 
-    def _scroll_to_selected(self):
-        """Ensure the selected item is visible in the scroll view"""
-        if self.selected_index is None:
-            return
-
-        container = self.query_one(".items-container")
-        selected_item = self.items[self.selected_index]
-
-        # Get container dimensions
-        viewport_start = container.scroll_y
-        viewport_end = viewport_start + container.size.height
-
-        # Get item position relative to container
-        item_start = selected_item.region.y - container.region.y
-        item_end = item_start + selected_item.region.height
-
-        # Calculate scroll position
-        if item_start < viewport_start:
-            # Scroll up to show item at top
-            container.scroll_to(y=item_start)
-        elif item_end > viewport_end:
-            # Scroll down to show item at bottom
-            container.scroll_to(y=item_end - container.size.height)
-
     def _select_item(self, index: int):
         """Select an item by index"""
         if not self.items:
@@ -180,8 +157,6 @@ class SlashCommandPopup(Container):
         index = max(0, min(index, len(self.items) - 1))
         self.items[index].select()
         self.selected_index = index
-
-        self._scroll_to_selected()
 
     def _confirm_selection(self):
         """Confirm the current selection"""
@@ -232,6 +207,12 @@ class SlashCommandPopup(Container):
             return
 
         self.text_area.insert(selected_text)
+
+        line_number = self.text_area.cursor_location[0]
+        end = self.text_area.cursor_location[1]
+        start = end - len(selected_text)
+
         self.text_area.refresh(layout=True)
         self.remove()
+        self.text_area.styles.height = len(self.text_area.text.splitlines()) + 2
         self.text_area.focus()
