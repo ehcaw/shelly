@@ -133,7 +133,6 @@ class ScrollableChatContainer(ScrollableContainer):
             height: auto;        /* Allow natural expansion */
             max-height: 200;     /* But cap it at a specific height */
             overflow-y: auto;    /* Enable scrolling when content exceeds max-height */
-            border: solid blue;  /* Temporary, to help visualize the container */
         }
 
         TextArea {
