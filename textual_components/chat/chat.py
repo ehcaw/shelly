@@ -21,7 +21,7 @@ from ..widget.typing_indicator import IsTyping
 from ..widget.chat_history import ChatHistory, MessageClass
 from ..commands.file_search import SlashCommandPopup
 from ..commands.autocomplete import AutoComplete, Dropdown, DropdownItem
-from ..chat.chat_input_area import ChatInputArea
+from ..chat.chat_input_area import ChatInputArea, ScrollableChatContainer
 
 from pathlib import Path
 from datetime import datetime
@@ -117,7 +117,8 @@ class Chat(Widget):
                 # Chat messages scroll area
                 with Vertical(id="chat-input-container"):
                     with Horizontal(id="chat-input-text-container"):
-                        yield self.input_area
+                        self.scrollable_container = ScrollableChatContainer(self.input_area)
+                        yield self.scrollable_container
                         yield Button("Send", id="btn-submit")
                         yield self.responding_indicator
                 scroll = VerticalScroll(id="chat-scroll-container")

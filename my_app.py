@@ -55,14 +55,10 @@ class Shelly(App):
     """
     BINDINGS = [
         ("m", "maximise", "Maximise the focused widget"),
-        ("ctrl+t", "new_terminal", "New Terminal"),
-        ("ctrl+w", "close_terminal", "Close Terminal"),
-        ("super+r", "refresh_screen", "Refresh Screen")
+        ("ctrl+shift+r", "refresh_screen", "Refresh Screen")
     ]
     def __init__(self):
         super().__init__()
-        self.child_terminal = None
-        #self.zapper = SimpleChat()
         api_key = os.getenv('GROQ_API_KEY')
         if not api_key:
             raise ValueError("GROQ_API_KEY environment variable is not set")
@@ -103,28 +99,14 @@ class Shelly(App):
         with Grid(id="main_grid"):
             # Left side - Chat component
             with Vertical(id="left_panel"):
-                yield Chat(
-                    app=self
-                )
+                self.chat = Chat(app=self)
+                yield self.chat
                 yield CommandFooter()
 
             # Right side - Your existing components
             with Vertical(id="right_panel"):
                 #yield TokenUsagePlot(id="token_usage")
                 yield RichLog(id="debug_log")
-                with ScrollableContainer(id="terminal_panel"):
-                    yield TabbedTerminals()
-
-
-    def action_new_terminal(self):
-        """Add a new terminal tab."""
-        terminal_tabs = self.query_one(TabbedTerminals)
-        terminal_tabs.add_terminal()
-
-    def action_close_terminal(self):
-        """Close the current terminal tab."""
-        terminal_tabs = self.query_one(TabbedTerminals)
-        terminal_tabs.action_close_terminal()
 
     def action_maximise(self):
         """Maximise the focused widget"""
@@ -138,8 +120,6 @@ class Shelly(App):
     async def on_shutdown(self) -> None:
         """Clean up when the application is shutting down"""
         # Add any cleanup code here
-        if self.child_terminal:
-            self.child_terminal.kill_tmux_session()
 
     async def on_mount(self) -> None:
         """Called after the app is mounted"""

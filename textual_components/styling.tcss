@@ -20,7 +20,6 @@ Chat {
     layers: base overlay selection-list;
 
 Chat > VerticalScroll {
-    border-left: $left-border-trim;
     overflow-y: auto;
     height: auto;
     min-height: 1fr;
@@ -46,7 +45,6 @@ ChatInputArea {
     dock: top;
     position: relative;  /* Make it float over content */
     margin-top: 0;
-    border-left: $left-border-trim;
     background: $background;
     height: auto;
     min-height: 3;
@@ -63,7 +61,6 @@ ChatHeader {
   height: auto;
   padding: 1 2;
   background: $background 50%;
-  border-left: $left-border-trim;
   margin: 1;
 }
 
@@ -95,7 +92,6 @@ ChatHeader Vertical {
 #sidebar {
     width: 25%;
     height: 100%;
-    border-right: solid $primary;
 }
 
 /* Style the option list */
