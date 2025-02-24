@@ -76,7 +76,6 @@ class ChatInputArea(TextArea):
     @on(Key)
     def on_key(self, event: Key) -> None:
         try:
-            self.chat.debug_log.write(event.key)
             if event.key in ("ctrl+enter", "shift+enter"):
                 self.post_message(ChatInputArea.Submit(self))
                 return
