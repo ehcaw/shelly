@@ -107,19 +107,6 @@ class Shelly(App):
             with Vertical(id="right_panel"):
                 #yield TokenUsagePlot(id="token_usage")
                 yield RichLog(id="debug_log")
-                with ScrollableContainer(id="terminal_panel"):
-                    yield TabbedTerminals()
-
-
-    def action_new_terminal(self):
-        """Add a new terminal tab."""
-        terminal_tabs = self.query_one(TabbedTerminals)
-        terminal_tabs.add_terminal()
-
-    def action_close_terminal(self):
-        """Close the current terminal tab."""
-        terminal_tabs = self.query_one(TabbedTerminals)
-        terminal_tabs.action_close_terminal()
 
     def action_maximise(self):
         """Maximise the focused widget"""

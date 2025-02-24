@@ -60,6 +60,11 @@ class ChatInputArea(TextArea):
         if cursor is None:
             return
 
+        if len(self.text.split('\n')) + 3 >= self.parent.size.height:
+            self.parent.styles.height = "1fr"
+        else:
+            self.parent.styles.height = "auto"
+
         current_line = self.document.get_line(cursor[0])
         # Only show for /file command and when there's a space after it
         if str("@file") in current_line and cursor[1] - (current_line.index("@file")+5) == 1:
@@ -121,3 +126,24 @@ class ChatInputArea(TextArea):
         return sorted(files)
     #def action_search(self):
         #self.screen.action_search()
+
+class ScrollableChatContainer(ScrollableContainer):
+    DEFAULT_CSS = """
+        ScrollableChatContainer {
+            height: auto;        /* Allow natural expansion */
+            max-height: 200;     /* But cap it at a specific height */
+            overflow-y: auto;    /* Enable scrolling when content exceeds max-height */
+            border: solid blue;  /* Temporary, to help visualize the container */
+        }
+
+        TextArea {
+            width: 100%;
+            height: auto;
+        }
+        """
+    def __init__(self, input_area):
+        super().__init__()
+        self.input_area = input_area
+
+    def compose(self):
+        yield self.input_area
