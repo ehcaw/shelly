@@ -1,17 +1,16 @@
 from textual.widget import Widget
-from textual.widgets import TextArea, Button, RichLog, Input, OptionList
-from textual.widgets.option_list import Option
-from textual.app import ComposeResult
-from textual.containers import ScrollableContainer, Vertical, Horizontal, VerticalScroll, Container
+from textual.widgets import TextArea, RichLog, Input, OptionList
+from textual.containers import ScrollableContainer, Vertical, VerticalScroll
 from textual.binding import Binding
 from textual.message import Message
-from textual.reactive import var
-from textual import on, events, work
+from textual import on, events
 from textual.css.query import NoMatches
 from textual.events import Key
 #from textual_autocomplete import AutoComplete, Dropdown, DropdownItem, InputState
 
-from typing import List, Optional
+from textual_components.commands.file_search import SlashCommandPopup
+
+from typing import List
 import os
 from dataclasses import dataclass
 from functools import lru_cache
@@ -63,7 +62,7 @@ class ChatInputArea(TextArea):
 
         current_line = self.document.get_line(cursor[0])
         # Only show for /file command and when there's a space after it
-        if str("/file") in current_line and cursor[1] - (current_line.index("/file")+5) == 1:
+        if str("@file") in current_line and cursor[1] - (current_line.index("@file")+5) == 1:
             # Remove any existing popup
             existing = self.query("SlashCommandPopup")
             for widget in existing:
@@ -71,16 +70,22 @@ class ChatInputArea(TextArea):
 
             # Create new popup
             popup = SlashCommandPopup(self)
-            self.styles.height="25"
+            self.styles.height = "25"
             await self.mount(popup)
 
     @on(Key)
     def on_key(self, event: Key) -> None:
         try:
+            self.chat.debug_log.write(event.key)
+            if event.key in ("ctrl+enter", "shift+enter"):
+                self.post_message(ChatInputArea.Submit(self))
+                return
             if self.query_one("SlashCommandPopup") and event.key == "enter":
                 popup = self.query_one("SlashCommandPopup")
                 popup.confirm_selection()
                 event.prevent_default()
+                self.styles.height = "auto"
+                return
         except NoMatches:
             pass
 
