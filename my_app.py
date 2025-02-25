@@ -100,6 +100,7 @@ class Shelly(App):
             # Left side - Chat component
             with Vertical(id="left_panel"):
                 self.chat = Chat(app=self)
+                self.chat.input_area.focus()
                 yield self.chat
                 yield CommandFooter()
 

@@ -90,96 +90,96 @@ class SlashCommandPopup(Container):
         self.items_container = Container(classes="items-container")
         self.items: List[SlashCommandItem] = []
         self.selected_index: Optional[int] = None
-        
+
         # Define ignore patterns
         self.ignore_dirs = {
             # Version Control
             '.git', '.svn', '.hg', '.bzr',
-            
+
             # Python
             '__pycache__', '.pytest_cache', '.mypy_cache', '.ruff_cache',
             'venv', '.venv', 'env', '.env', '.tox',
-            
+
             # Node.js / JavaScript
             'node_modules', 'bower_components',
             '.next', '.nuxt', '.gatsby',
-            
+
             # Build directories
             'dist', 'build', '_build', 'public/build',
             'target', 'out', 'output',
             'bin', 'obj',
-            
+
             # IDE and editors
             '.idea', '.vscode', '.vs',
             '.settings', '.project', '.classpath',
-            
+
             # Dependencies
             'vendor', 'packages',
-            
+
             # Coverage and tests
             'coverage', '.coverage', 'htmlcov',
-            
+
             # Mobile
             'Pods', '.gradle',
-            
+
             # Misc
             'tmp', 'temp', 'logs',
             '.sass-cache', '.parcel-cache',
             '.cargo', 'artifacts'
         }
-        
+
         self.ignore_files = {
             # Python
             '*.pyc', '*.pyo', '*.pyd',
             '*.so', '*.egg', '*.egg-info',
-            
+
             # JavaScript/Web
             '*.min.js', '*.min.css',
             '*.chunk.js', '*.chunk.css',
             '*.bundle.js', '*.bundle.css',
             '*.hot-update.*',
-            
+
             # Build artifacts
             '*.o', '*.obj', '*.a', '*.lib',
             '*.dll', '*.dylib', '*.so',
             '*.exe', '*.bin',
-            
+
             # Logs and databases
             '*.log', '*.logs',
             '*.sqlite', '*.sqlite3', '*.db',
             '*.mdb', '*.ldb',
-            
+
             # Package locks
             'package-lock.json', 'yarn.lock',
             'poetry.lock', 'Pipfile.lock',
             'pnpm-lock.yaml', 'composer.lock',
-            
+
             # Environment and secrets
             '.env', '.env.*', '*.env',
             '.env.local', '.env.development',
             '.env.test', '.env.production',
             '*.pem', '*.key', '*.cert',
-            
+
             # Cache files
             '.DS_Store', 'Thumbs.db',
             '*.cache', '.eslintcache',
             '*.swp', '*.swo',
-            
+
             # Documentation build
             '*.pdf', '*.doc', '*.docx',
-            
+
             # Images and large media
             '*.jpg', '*.jpeg', '*.png', '*.gif',
             '*.ico', '*.svg', '*.woff', '*.woff2',
             '*.ttf', '*.eot', '*.mp4', '*.mov',
-            
+
             # Archives
             '*.zip', '*.tar', '*.gz', '*.rar',
-            
+
             # Generated sourcemaps
             '*.map', '*.css.map', '*.js.map'
         }
-        
+
         self._cached_files = self._get_files()
 
     def _get_files(self, max_files: int = 100) -> List[str]:
@@ -190,7 +190,7 @@ class SlashCommandPopup(Container):
         for root, dirs, filenames in os.walk(cwd, topdown=True):
             # Skip ignored directories
             dirs[:] = [d for d in dirs if d not in self.ignore_dirs]
-            
+
             if self.directorySearch:
                 # Only add directories
                 for dir_name in dirs:
@@ -260,6 +260,7 @@ class SlashCommandPopup(Container):
     def on_key(self, event):
         if event.key == "escape":
             self.remove()
+            self.parent.styles.height = "auto"
             event.prevent_default()
         elif event.key == "enter":
             self._confirm_selection()
