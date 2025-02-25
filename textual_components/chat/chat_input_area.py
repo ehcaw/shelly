@@ -54,6 +54,7 @@ class ChatInputArea(TextArea):
         super()._on_focus(event)
         self.chat.scroll_to_latest_message()
 
+
     @on(TextArea.Changed)
     async def on_input_changed(self, event: TextArea.Changed):
         cursor = self.cursor_location
@@ -66,24 +67,8 @@ class ChatInputArea(TextArea):
             self.parent.styles.height = "auto"
 
         current_line = self.document.get_line(cursor[0])
-        
-        # Check for colon commands
-        if current_line.startswith(':'):
-            command = current_line[1:2].lower()  # Get first character after colon
-            if command in ['f', 'd'] and (len(current_line) == 2 or current_line[2] == ' '):
-                # Remove any existing popup
-                existing = self.query("SlashCommandPopup")
-                for widget in existing:
-                    widget.remove()
-                # Create new popup with appropriate mode
-                if command == 'f':
-                    popup = SlashCommandPopup(self, get_directories=False)  # For files
-                elif command == 'd':
-                    popup = SlashCommandPopup(self, get_directories=True)  # For directories
-                self.styles.height = "25"
-                await self.mount(popup)
-            else:
-                self.reset_height()
+        # Only show for /file command and when there's a space after it
+        await self.handle_command(current_line)
 
     @on(Key)
     def on_key(self, event: Key) -> None:
@@ -99,6 +84,31 @@ class ChatInputArea(TextArea):
                 return
         except NoMatches:
             pass
+
+    async def handle_command(self, current_line):
+        cursor = self.cursor_location
+        if cursor is None: return
+        current_line = self.document.get_line(cursor[0])
+        if (current_line.startswith("@file") and cursor[1] - (current_line.index("@file")+5) == 1) or (current_line.startswith(":f") and cursor[1] - (current_line.index(":f")+2) == 1):
+            # Remove any existing popup
+            existing = self.query("SlashCommandPopup")
+            for widget in existing:
+                widget.remove()
+
+            # Create new popup
+            popup = SlashCommandPopup(self, get_directories=False)
+            self.styles.height = "25"
+            await self.mount(popup)
+        if (current_line.startswith("@dir") and cursor[1] - (current_line.index("@dir")+4) == 1) or (current_line.startswith(":d") and cursor[1] - (current_line.index(":d")+2) == 1):
+            # Remove any existing popup
+            existing = self.query("SlashCommandPopup")
+            for widget in existing:
+                widget.remove()
+
+            # Create new popup
+            popup = SlashCommandPopup(self, get_directories=True)
+            self.styles.height = "25"
+            await self.mount(popup)
 
     @lru_cache
     def _get_files(self, max_files: int = 100) -> List[str]:
