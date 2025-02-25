@@ -1,4 +1,6 @@
-from textual.widgets import TextArea
+from textual.widget import Widget
+from textual.widgets import TextArea, RichLog, Input, OptionList
+from textual.containers import ScrollableContainer, Vertical, VerticalScroll
 from textual.binding import Binding
 from textual.message import Message
 from textual import on, events
@@ -6,13 +8,12 @@ from textual.css.query import NoMatches
 from textual.events import Key
 #from textual_autocomplete import AutoComplete, Dropdown, DropdownItem, InputState
 
-from ..commands.file_search import SlashCommandPopup
-#from ..commands.autocomplete import AutoComplete, Dropdown, DropdownItem, SlashCommandInput
+from textual_components.commands.file_search import SlashCommandPopup
 
 from typing import List
 import os
-from functools import lru_cache
 from dataclasses import dataclass
+from functools import lru_cache
 
 @dataclass
 class InputState:
@@ -53,15 +54,16 @@ class ChatInputArea(TextArea):
         super()._on_focus(event)
         self.chat.scroll_to_latest_message()
 
-    def reset_height(self):
-        self.styles.height = "auto"
-
-
     @on(TextArea.Changed)
     async def on_input_changed(self, event: TextArea.Changed):
         cursor = self.cursor_location
         if cursor is None:
             return
+
+        if len(self.text.split('\n')) + 3 >= self.parent.size.height:
+            self.parent.styles.height = "1fr"
+        else:
+            self.parent.styles.height = "auto"
 
         current_line = self.document.get_line(cursor[0])
         
@@ -73,7 +75,6 @@ class ChatInputArea(TextArea):
                 existing = self.query("SlashCommandPopup")
                 for widget in existing:
                     widget.remove()
-
                 # Create new popup with appropriate mode
                 if command == 'f':
                     popup = SlashCommandPopup(self, get_directories=False)  # For files
@@ -87,11 +88,15 @@ class ChatInputArea(TextArea):
     @on(Key)
     def on_key(self, event: Key) -> None:
         try:
+            if event.key in ("ctrl+enter", "shift+enter"):
+                self.post_message(ChatInputArea.Submit(self))
+                return
             if self.query_one("SlashCommandPopup") and event.key == "enter":
                 popup = self.query_one("SlashCommandPopup")
                 popup.confirm_selection()
-                self.action_cursor_down()
                 event.prevent_default()
+                self.styles.height = "auto"
+                return
         except NoMatches:
             pass
 
@@ -128,3 +133,23 @@ class ChatInputArea(TextArea):
         return sorted(files)
     #def action_search(self):
         #self.screen.action_search()
+
+class ScrollableChatContainer(ScrollableContainer):
+    DEFAULT_CSS = """
+        ScrollableChatContainer {
+            height: auto;        /* Allow natural expansion */
+            max-height: 200;     /* But cap it at a specific height */
+            overflow-y: auto;    /* Enable scrolling when content exceeds max-height */
+        }
+
+        TextArea {
+            width: 100%;
+            height: auto;
+        }
+        """
+    def __init__(self, input_area):
+        super().__init__()
+        self.input_area = input_area
+
+    def compose(self):
+        yield self.input_area
