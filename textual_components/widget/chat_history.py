@@ -150,6 +150,8 @@ class ChatHistory(Widget):
             pass
         assert index
         del index[conversation_id]
+        if conversation_id in self._conversation_cache:
+            del self._conversation_cache[conversation_id]
         with open(self.index_path, 'w') as f:
             json.dump(index, f, indent=4)
         return True
@@ -214,8 +216,9 @@ class ChatHistory(Widget):
             "summary": summary
         }
         conversation["messages"].append(message_dict)
+        # Update cache on new message
         if conversation_id in self._conversation_cache:
-            self._conversation_cache[conversation_id] = conversation["messages"]
+            self._conversation_cache[conversation_id].append(message_dict)
         with open(file_path, 'w') as fr:
             json.dump(conversation, fr, indent=4)
         return True
@@ -236,6 +239,9 @@ class ChatHistory(Widget):
             if conversation["messages"]:  # Check if there are messages
                 conversation["messages"][-1]["summary"] = summary
 
+            #Update cache
+            if conversation_id in self._conversation_cache:
+                self._conversation_cache[conversation_id] = conversation["messages"]
             # Write the entire updated conversation back to file
             with open(file_path, 'w') as f:
                 json.dump(conversation, f, indent=4)

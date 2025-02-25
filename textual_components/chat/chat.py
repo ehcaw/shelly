@@ -218,6 +218,7 @@ class Chat(Widget):
             return
         if self.chat_container:
             self.chat_container.remove_children()
+        self.chat_history.current_chat_id = message.chat_id
         messages = self.chat_history.load_conversation(message.chat_id)
         self.debug_log.write(messages)
         self.chat_header.watch_title(self.chat_history.get_conversation_name(message.chat_id))
@@ -287,7 +288,7 @@ class Chat(Widget):
             self.debug_log.write(split_line)
 
             if len(split_line) == 2:
-                if line.startswith(":f "):  # File command
+                if line.startswith(":f ") or line.startswith("@file"):  # File command
                     try:
                         file_path = Path(split_line[1])
                         if file_path.is_file():
@@ -299,7 +300,7 @@ class Chat(Widget):
                     except Exception as e:
                         lines[i] = f"# Error reading file: {str(e)}"
 
-                elif line.startswith(":d "):  # Directory command
+                elif line.startswith(":d ") or line.startswith("@dir"):  # Directory command
                     try:
                         dir_path = Path(split_line[1])
                         if dir_path.is_dir():
