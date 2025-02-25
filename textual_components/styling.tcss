@@ -90,6 +90,11 @@ ChatHeader Vertical {
 }
 
 #sidebar {
+    width: 5%;
+    height: 100%;
+}
+
+#chathistory {
     width: 25%;
     height: 100%;
 }
