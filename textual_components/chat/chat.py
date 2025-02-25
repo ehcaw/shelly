@@ -1,5 +1,5 @@
 from textual.widget import Widget
-from textual.widgets import TextArea, Button, Input, OptionList
+from textual.widgets import TextArea, Button, Input, OptionList, ContentSwitcher
 from textual.widgets.option_list import Option
 from textual.app import ComposeResult
 from textual.containers import ScrollableContainer, Vertical, Horizontal, VerticalScroll
@@ -19,6 +19,7 @@ from ..commands.file_search import SlashCommandPopup
 from ..widget.chat_header import ChatHeader
 from ..widget.typing_indicator import IsTyping
 from ..widget.chat_history import ChatHistory, MessageClass
+from ..widget.vertical_tabs import VerticalContentSwitcher
 from ..commands.file_search import SlashCommandPopup
 from ..commands.autocomplete import AutoComplete, Dropdown, DropdownItem
 from ..chat.chat_input_area import ChatInputArea, ScrollableChatContainer
@@ -106,12 +107,14 @@ class Chat(Widget):
         with Horizontal(id="chat-app"):
             # Left sidebar
             with Vertical(id="sidebar"):
+                self.vertical_tabs = VerticalContentSwitcher(self)
+                yield self.vertical_tabs
+            with Vertical(id="chathistory"):
                 self.chat_header = ChatHeader(self)
                 yield self.chat_header
                 chat_history = ChatHistory(self)
                 self.chat_history = chat_history
                 yield chat_history
-
             # Main chat area
             with Vertical(id="main-chat-area"):
                 # Chat messages scroll area
@@ -215,7 +218,7 @@ class Chat(Widget):
         lines = content.splitlines()
         i = 0
         assert self.debug_log
-        
+
         while i < len(lines):
             line = lines[i]
             split_line = line.split()
@@ -233,7 +236,7 @@ class Chat(Widget):
                             lines[i] = f"# Error: File not found - {file_path}"
                     except Exception as e:
                         lines[i] = f"# Error reading file: {str(e)}"
-                    
+
                 elif line.startswith(":d "):  # Directory command
                     try:
                         dir_path = Path(split_line[1])
@@ -241,7 +244,7 @@ class Chat(Widget):
                             dir_contents = []
                             dir_contents.append(f"# Directory contents of: {dir_path}")
                             for file_path in dir_path.rglob('*'):
-                                if (file_path.is_file() and 
+                                if (file_path.is_file() and
                                     not any(ignore in str(file_path) for ignore in ['.git', '__pycache__', 'node_modules']) and
                                     file_path.suffix.lower() in ['.py', '.js', '.jsx', '.ts', '.tsx', '.java', '.cpp', '.h', '.rs', '.go']):
                                     try:
