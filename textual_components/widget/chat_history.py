@@ -50,6 +50,8 @@ class ChatHistory(Widget):
     current_chat_id: var[str | None] = var(None)
     index: Dict[str, ConversationIndex]
 
+    _conversation_cache = {}
+
     def __init__(self, app):
         super().__init__()
         self.app_dir = Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -60,6 +62,7 @@ class ChatHistory(Widget):
         self.is_new_chat = True
         self.index = self._load_index()
         self.options = self._load_conversations()
+
 
     @dataclass
     class ChatOpened(Message):
@@ -147,6 +150,8 @@ class ChatHistory(Widget):
             pass
         assert index
         del index[conversation_id]
+        if conversation_id in self._conversation_cache:
+            del self._conversation_cache[conversation_id]
         with open(self.index_path, 'w') as f:
             json.dump(index, f, indent=4)
         return True
@@ -211,6 +216,9 @@ class ChatHistory(Widget):
             "summary": summary
         }
         conversation["messages"].append(message_dict)
+        # Update cache on new message
+        if conversation_id in self._conversation_cache:
+            self._conversation_cache[conversation_id].append(message_dict)
         with open(file_path, 'w') as fr:
             json.dump(conversation, fr, indent=4)
         return True
@@ -231,6 +239,9 @@ class ChatHistory(Widget):
             if conversation["messages"]:  # Check if there are messages
                 conversation["messages"][-1]["summary"] = summary
 
+            #Update cache
+            if conversation_id in self._conversation_cache:
+                self._conversation_cache[conversation_id] = conversation["messages"]
             # Write the entire updated conversation back to file
             with open(file_path, 'w') as f:
                 json.dump(conversation, f, indent=4)
@@ -257,8 +268,11 @@ class ChatHistory(Widget):
             fr.close()
         return True
 
-    @lru_cache
     def load_conversation(self, conversation_id: str):
+        # Check cache first
+        if conversation_id in self._conversation_cache:
+            return self._conversation_cache[conversation_id]
+
         conversation_index = self.index[conversation_id]
         self.current_chat_id = conversation_id
         if not conversation_index: return {}
@@ -266,7 +280,9 @@ class ChatHistory(Widget):
         try:
             with open(file_path, 'r') as f:
                 contents = json.load(f)
-                return [MessageClass(**msg) for msg in contents["messages"]]
+                messages = [MessageClass(**msg) for msg in contents["messages"]]
+                self._conversation_cache[conversation_id] = messages
+                return messages
         except Exception as e:
             print('conversation not found')
             return []

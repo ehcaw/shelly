@@ -1,8 +1,8 @@
 from textual.widget import Widget
-from textual.widgets import TextArea, Button, Input, OptionList, ContentSwitcher
+from textual.widgets import TextArea, Button, Input, OptionList, ContentSwitcher, Static
 from textual.widgets.option_list import Option
 from textual.app import ComposeResult
-from textual.containers import ScrollableContainer, Vertical, Horizontal, VerticalScroll
+from textual.containers import ScrollableContainer, Vertical, Horizontal, VerticalScroll, Container
 from textual.binding import Binding
 from textual.message import Message
 from textual.reactive import var
@@ -103,6 +103,7 @@ class Chat(Widget):
         if self.chat_history is not None:
             self.chat_history.is_new_chat = value
 
+    '''
     def compose(self) -> ComposeResult:
         with Horizontal(id="chat-app"):
             # Left sidebar
@@ -134,6 +135,67 @@ class Chat(Widget):
         if "selection-list" not in screen_layers:
             screen_layers.append("selection-list")
         self.screen.styles.layers = tuple(screen_layers)
+    '''
+    def compose(self) -> ComposeResult:
+        with Horizontal(id="chat-app"):
+            # Left sidebar
+            with Vertical(id="sidebar"):
+                self.vertical_tabs = VerticalContentSwitcher(self)
+                yield self.vertical_tabs
+
+            # Create main content area with both views
+            self.main_content = ContentSwitcher()
+            with self.main_content:
+                # Chat view
+                with Container(id="chat-view") as chat_view:
+                    with Horizontal():
+                        with Vertical(id="chathistory"):
+                            self.chat_header = ChatHeader(self)
+                            yield self.chat_header
+                            self.chat_history = ChatHistory(self)
+                            yield self.chat_history
+
+                        with Vertical(id="main-chat-area"):
+                            with Vertical(id="chat-input-container"):
+                                with Horizontal(id="chat-input-text-container"):
+                                    self.scrollable_container = ScrollableChatContainer(self.input_area)
+                                    yield self.scrollable_container
+                                    yield Button("Send", id="btn-submit")
+                                    yield self.responding_indicator
+                            scroll = VerticalScroll(id="chat-scroll-container")
+                            self.chat_container = scroll
+                            yield scroll
+                self.chat_view = chat_view
+
+                # Architect view
+                with Container(id="architect-view") as architect_view:
+                    yield Static("Architect View")
+                self.architect_view = architect_view
+            self.main_content.add_content(chat_view, set_current=True)
+            self.main_content.add_content(architect_view, set_current=False)
+            yield self.main_content
+
+    def on_mount(self) -> None:
+        # Set initial screen
+        self.main_content.current = "chat-view"
+
+        # Ensure textual-autocomplete layer exists
+        screen_layers = list(self.screen.styles.layers)
+        if "selection-list" not in screen_layers:
+            screen_layers.append("selection-list")
+        self.screen.styles.layers = tuple(screen_layers)
+
+
+    # Then in your tab change handler
+    def on_vertical_content_switcher_tab_changed(self, message: VerticalContentSwitcher.TabChanged):
+        self.debug_log.write(message.tab_id)
+        self.debug_log.write(self.chat_view.id)
+        self.debug_log.write(self.architect_view.id)
+        if message.tab_id == "chat":
+            self.main_content.current = "chat-view"
+        elif message.tab_id == "architect":
+            self.main_content.current = "architect-view"
+
 
     @on(ChatInputArea.Submit)
     async def user_chat_message_submitted(self, event: ChatInputArea.Submit) -> None:
@@ -156,6 +218,7 @@ class Chat(Widget):
             return
         if self.chat_container:
             self.chat_container.remove_children()
+        self.chat_history.current_chat_id = message.chat_id
         messages = self.chat_history.load_conversation(message.chat_id)
         self.debug_log.write(messages)
         self.chat_header.watch_title(self.chat_history.get_conversation_name(message.chat_id))
@@ -225,7 +288,7 @@ class Chat(Widget):
             self.debug_log.write(split_line)
 
             if len(split_line) == 2:
-                if line.startswith(":f "):  # File command
+                if line.startswith(":f ") or line.startswith("@file"):  # File command
                     try:
                         file_path = Path(split_line[1])
                         if file_path.is_file():
@@ -237,7 +300,7 @@ class Chat(Widget):
                     except Exception as e:
                         lines[i] = f"# Error reading file: {str(e)}"
 
-                elif line.startswith(":d "):  # Directory command
+                elif line.startswith(":d ") or line.startswith("@dir"):  # Directory command
                     try:
                         dir_path = Path(split_line[1])
                         if dir_path.is_dir():
