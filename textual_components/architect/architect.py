@@ -10,7 +10,7 @@ from rich.text import Text
 
 from ..architect.tab_button import TabButton
 from ..architect.file_tree import FileExplorer
-
+from .code_editor import CodeEditor
 from collections import deque
 from pathlib import Path
 import os
@@ -239,14 +239,22 @@ class Architect(Widget):
             tab_button.add_class("tab-button")
             tabs_container.mount(tab_button)
 
+    def on_code_change(self, content: str) -> None:
+        """Save changes when code is modified."""
+        if self.current_file:
+            self.current_file['content'] = content
+            # You might want to add file saving logic here
+            # For example:
+            # with open(self.current_file['path'], 'w') as f:
+            #     f.write(content)
 
     def update_editor(self):
         """Update the editor content."""
-        # Get the Static widget inside the ScrollableContainer
-        code_view = self.query_one("#code-content")
+        # Get the CodeEditor widget inside the ScrollableContainer
+        code_editor = self.query_one("#code-content", CodeEditor)
 
         if not self.current_file:
-            code_view.update("Select a file to view its content")
+            code_editor.text = "Select a file to view its content"
             self.query_one("#breadcrumb-container").update("")
             self.query_one("#status-bar-content").update("")
             return
@@ -269,13 +277,28 @@ class Architect(Widget):
         status_text = f"main   {language.capitalize()}   UTF-8   Ln 1, Col 1"
         self.query_one("#status-bar-content").update(status_text)
 
-        # Update code view
+        # Update code view with the appropriate language
         content = self.current_file.get('content', 'No content')
-        language = self.current_file.get('language', 'text')
-
-        # Use rich's Syntax for syntax highlighting
-        syntax = Syntax(content, language, theme="monokai", line_numbers=True)
-        code_view.update(syntax)
+        language = None
+        
+        # Try to determine language based on file extension
+        file_path = self.current_file.get('path', '')
+        if file_path:
+            if file_path.endswith('.py'):
+                language = 'python'
+            elif file_path.endswith('.js'):
+                language = 'javascript'
+            elif file_path.endswith('.ts'):
+                language = 'typescript'
+            elif file_path.endswith('.html'):
+                language = 'html'
+            elif file_path.endswith('.css'):
+                language = 'css'
+            # Add more file extensions as needed
+        
+        # Update the editor content and language
+        code_editor.language = language
+        code_editor.text = content
 
     def compose(self) -> ComposeResult:
             """Create child widgets."""
@@ -301,7 +324,11 @@ class Architect(Widget):
 
                         # Editor Content
                         with ScrollableContainer(id="code-view"):
-                            yield Static("Select a file to view its content", id="code-content")
+                            yield CodeEditor(
+                                "Select a file to view its content", 
+                                id="code-content",
+                                on_change=self.on_code_change
+                            )
 
                         # Status Bar
                         with Container(id="status-bar"):
