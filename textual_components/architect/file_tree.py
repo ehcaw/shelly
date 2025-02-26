@@ -10,10 +10,10 @@ from rich.text import Text
 class FileExplorer(Tree):
     """File explorer tree component."""
 
-    def __init__(self, files=None, name=None, id=None, classes=None):
+    def __init__(self, files=None, architect=None, name=None, id=None, classes=None):
         super().__init__(name=name, label="Files", id=id, classes=classes)
         self.files = files or []
-
+        self.architect = architect
     def on_mount(self):
         """Initialize the file tree."""
         self.root.expand()
@@ -34,7 +34,7 @@ class FileExplorer(Tree):
         """Handle node selection."""
         file_data = event.node.data
         if file_data["type"] == "file":
-            self.app.open_file(file_data)
+            self.architect.open_file(file_data)
         else:
             # Toggle folder expansion
             if event.node.is_expanded:

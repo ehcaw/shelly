@@ -288,8 +288,7 @@ class Architect(Widget):
                         with Container(id="explorer-header"):
                             yield Label("EXPLORER", id="explorer-title")
                         yield Input(placeholder="Search files...", id="explorer-search")
-                        yield FileExplorer(files=self.file_structure, id="file-explorer")
-
+                        yield FileExplorer(files=self.file_structure, architect=self,id="file-explorer")
                     # Editor Area
                     with Vertical(id="editor-area"):
                         # Tabs Bar
