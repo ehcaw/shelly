@@ -222,7 +222,7 @@ class SlashCommandPopup(Container):
         ]
 
         # Find project root (look for .git, etc.)
-        root_dir = find_project_root(os.getcwd())
+        root_dir = self.find_project_root(os.getcwd())
 
         # First add root level project files
         for filename in project_files:
@@ -242,12 +242,12 @@ class SlashCommandPopup(Container):
         for important_dir in important_dirs:
             dir_path = os.path.join(root_dir, important_dir)
             if os.path.isdir(dir_path):
-                dir_files = scan_directory(dir_path, max_files // len(important_dirs), extensions)
+                dir_files = self.scan_directory(dir_path, max_files // len(important_dirs), extensions)
                 files.extend(os.path.relpath(f, os.getcwd()) for f in dir_files)
 
         # If we still need more files, do a fast crawl of the project root
         if len(files) < max_files:
-            remaining_files = scan_directory(
+            remaining_files = self.scan_directory(
                 root_dir,
                 max_files - len(files),
                 extensions,
