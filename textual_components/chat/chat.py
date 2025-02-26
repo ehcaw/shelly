@@ -138,7 +138,7 @@ class Chat(Widget):
                 # Architect view
                 with Container(id="architect-view") as architect_view:
                     #yield Static("Architect View")
-                    self.architect = Architect()
+                    self.architect = Architect(chat=self)
                     yield self.architect
                 self.architect_view = architect_view
             self.main_content.add_content(chat_view, set_current=True)

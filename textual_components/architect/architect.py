@@ -4,18 +4,21 @@ from textual.widgets import Static, Input, Button, Tree, Label, Footer
 from textual.widget import Widget
 from textual.reactive import reactive
 from textual.widgets.tree import TreeNode
+from textual.worker import Worker
 from textual import events
 from rich.syntax import Syntax
 from rich.text import Text
 
 from ..architect.tab_button import TabButton
 from ..architect.file_tree import FileExplorer
+from .code_editor import CodeEditor
 
 from collections import deque
 from pathlib import Path
 import os
 import fnmatch
 import mimetypes
+from numba import njit
 
 class Architect(Widget):
     """A textual app that mimics a code editor."""
@@ -141,7 +144,7 @@ class Architect(Widget):
         ("ctrl+w", "close_tab", "Close Tab"),
     ]
 
-    def __init__(self):
+    def __init__(self, chat):
         super().__init__()
         self.mock_files = [
             {
@@ -172,6 +175,7 @@ class Architect(Widget):
             {"name": "tsconfig.json", "type": "file", "language": "json", "content": "{\n  \"compilerOptions\": {\n    \"target\": \"es5\",\n    \"lib\": [\"dom\", \"dom.iterable\", \"esnext\"],\n    \"allowJs\": true,\n    \"skipLibCheck\": true,\n    \"esModuleInterop\": true,\n    \"strict\": true,\n    \"forceConsistentCasingInFileNames\": true,\n    \"noFallthroughCasesInSwitch\": true,\n    \"module\": \"esnext\",\n    \"moduleResolution\": \"node\",\n    \"resolveJsonModule\": true,\n    \"isolatedModules\": true,\n    \"noEmit\": true,\n    \"jsx\": \"react-jsx\"\n  },\n  \"include\": [\"src\"]\n}"},
         ]
         self.file_structure = self.scan_directory(os.getcwd())
+        self.chat = chat
 
     def action_toggle_explorer(self) -> None:
         """Toggle file explorer visibility."""
@@ -239,14 +243,22 @@ class Architect(Widget):
             tab_button.add_class("tab-button")
             tabs_container.mount(tab_button)
 
+    def on_code_change(self, content: str) -> None:
+        """Save changes when code is modified."""
+        if self.current_file:
+            self.current_file['content'] = content
+            # You might want to add file saving logic here
+            # For example:
+            # with open(self.current_file['path'], 'w') as f:
+            #     f.write(content)
 
     def update_editor(self):
         """Update the editor content."""
-        # Get the Static widget inside the ScrollableContainer
-        code_view = self.query_one("#code-content")
+        # Get the CodeEditor widget inside the ScrollableContainer
+        code_editor = self.query_one("#code-content", CodeEditor)
 
         if not self.current_file:
-            code_view.update("Select a file to view its content")
+            code_editor.text = "Select a file to view its content"
             self.query_one("#breadcrumb-container").update("")
             self.query_one("#status-bar-content").update("")
             return
@@ -269,13 +281,34 @@ class Architect(Widget):
         status_text = f"main   {language.capitalize()}   UTF-8   Ln 1, Col 1"
         self.query_one("#status-bar-content").update(status_text)
 
-        # Update code view
+        # Update code view with the appropriate language
         content = self.current_file.get('content', 'No content')
-        language = self.current_file.get('language', 'text')
+        if len(content) == 0:
+            if not self.is_text_file(self.current_file["path"]):
+                content = "The content is not UTF-8 decodable and cannot be read."
+            else:
+                with open(self.current_file["path"]) as f:
+                    content = f.read()
+        language = None
 
-        # Use rich's Syntax for syntax highlighting
-        syntax = Syntax(content, language, theme="monokai", line_numbers=True)
-        code_view.update(syntax)
+        # Try to determine language based on file extension
+        file_path = self.current_file.get('path', '')
+        if file_path:
+            if file_path.endswith('.py'):
+                language = 'python'
+            elif file_path.endswith('.js'):
+                language = 'javascript'
+            elif file_path.endswith('.ts'):
+                language = 'typescript'
+            elif file_path.endswith('.html'):
+                language = 'html'
+            elif file_path.endswith('.css'):
+                language = 'css'
+            # Add more file extensions as needed
+
+        # Update the editor content and language
+        code_editor.language = language
+        code_editor.text = content
 
     def compose(self) -> ComposeResult:
             """Create child widgets."""
@@ -301,7 +334,11 @@ class Architect(Widget):
 
                         # Editor Content
                         with ScrollableContainer(id="code-view"):
-                            yield Static("Select a file to view its content", id="code-content")
+                            yield CodeEditor(
+                                "Select a file to view its content",
+                                id="code-content",
+                                on_change=self.on_code_change
+                            )
 
                         # Status Bar
                         with Container(id="status-bar"):
@@ -318,6 +355,105 @@ class Architect(Widget):
                         yield Input(placeholder="Ask a question...", id="assistant-input")
 
                 yield Footer()
+
+    def start_file_scan(self):
+        """Begin scanning files in the background"""
+        self.scanning = True
+
+        # Run the scan in a worker
+        self.run_worker(self._scan_directory_structure_worker(os.getcwd()))
+
+    async def _scan_directory_structure_worker(self, directory_path, ignore_dirs=None):
+        """Worker method that runs in a separate worker"""
+        if ignore_dirs is None:
+            ignore_dirs = {
+                '.git', '.svn', '.hg', 'node_modules', '__pycache__',
+                '.venv', 'venv', 'env', 'dist', 'build', '.next',
+                '.idea', '.vscode', '.pytest_cache', '.mypy_cache'
+            }
+
+        result = []
+        try:
+            entries = sorted(os.listdir(directory_path))
+
+            for entry in entries:
+                full_path = os.path.join(directory_path, entry)
+
+                # Skip ignored directories
+                if os.path.isdir(full_path) and entry in ignore_dirs:
+                    continue
+
+                if os.path.isdir(full_path):
+                    # Recursively scan subdirectory structure only
+                    children = await self._scan_directory_structure_worker(
+                        full_path, ignore_dirs
+                    )
+                    # Add directory to results
+                    result.append({
+                        "name": entry,
+                        "type": "folder",
+                        "path": full_path,  # Store full path for later
+                        "children": children
+                    })
+                else:
+                    # Just add metadata, not content
+                    extension = os.path.splitext(entry)[1].lower()
+                    file_data = {
+                        "name": entry,
+                        "type": "file",
+                        "path": full_path,  # Store full path for later
+                        "size": os.path.getsize(full_path)
+                    }
+
+                    # Detect language from extension
+                    language_map = {
+                        '.js': 'javascript',
+                        '.jsx': 'javascript',
+                        '.ts': 'typescript',
+                        '.tsx': 'typescript',
+                        '.py': 'python',
+                        '.html': 'html',
+                        '.css': 'css',
+                        '.scss': 'scss',
+                        '.json': 'json',
+                        '.md': 'markdown',
+                        '.go': 'go',
+                        '.rs': 'rust',
+                        '.java': 'java',
+                        '.c': 'c',
+                        '.cpp': 'cpp',
+                        '.h': 'c',
+                        '.rb': 'ruby',
+                        '.php': 'php',
+                        '.sh': 'shell',
+                        '.yaml': 'yaml',
+                        '.yml': 'yaml',
+                    }
+                    language = language_map.get(extension)
+                    if language:
+                        file_data["language"] = language
+
+                    result.append(file_data)
+        except Exception as e:
+            print(f"Error scanning {directory_path}: {e}")
+            return []
+
+        return result
+
+    def on_worker_completed(self, event: Worker.StateChanged) -> None:
+        """Handle worker completion"""
+        if event.worker.state == "SUCCESS":
+            # This is our file structure scan worker
+            self.file_structure = event.worker.result
+            self.scan_complete = True
+            self.scanning = False
+
+            # Update the file explorer with the structure
+            file_explorer = self.query_one("#file-explorer")
+            file_explorer.update_files(self.file_structure)
+
+            # Notify the user that scanning is complete
+            self.notify("File scanning complete")
 
     def scan_directory(self, directory_path, ignore_dirs=None, ignore_files=None, max_file_size=500*1024):
         """
@@ -372,7 +508,8 @@ class Architect(Widget):
                         result.append({
                             "name": entry,
                             "type": "folder",
-                            "children": children
+                            "children": children,
+                            "abs_path": os.path.abspath(full_path)
                         })
                 else:
                     # Process file
@@ -385,6 +522,7 @@ class Architect(Widget):
                             file_data["language"] = language
 
                         # Only read content if it's not a binary file and not too large
+                        '''
                         if not self.is_binary_file(full_path):
                             stat_info = os.stat(full_path)
                             if stat_info.st_size <= max_file_size:
@@ -397,6 +535,9 @@ class Architect(Widget):
                                 file_data["content"] = f"File too large ({stat_info.st_size} bytes)..."
                         else:
                             file_data["content"] = "Binary file content..."
+                        '''
+                        file_data["content"] = ""
+                        file_data["path"] = os.path.abspath(full_path)
 
                         result.append(file_data)
                     except Exception as e:
@@ -562,15 +703,16 @@ class Architect(Widget):
                 return True
         return mime_type.startswith(('image/', 'audio/', 'video/', 'application/')) and not mime_type.endswith(('json', 'xml', 'javascript', 'html'))
 
-    def on_mount(self):
-        """Handle app start."""
-        # Open App.tsx by default
-        app_file = next((
-            file for folder in self.mock_files
-            if folder["name"] == "src"
-            for file in folder["children"]
-            if file["name"] == "App.tsx"
-        ), None)
-
-        if app_file:
-            self.open_file(app_file)
+    def is_text_file(self, file_path):
+        """Check if a file is a valid UTF-8 text file"""
+        try:
+            # Try to read a small chunk of the file as UTF-8
+            with open(file_path, 'r', encoding='utf-8') as f:
+                # Read just enough to determine if it's text (4KB should be sufficient)
+                f.read(4096)
+            return True
+        except UnicodeDecodeError:
+            return False
+        except Exception:
+            # For any other errors (like permission issues), assume it's not a text file
+            return False
