@@ -6,6 +6,10 @@ from textual.message import Message
 from typing import List, Optional
 import os
 import fnmatch
+import shutil
+import subprocess
+from pathlib import Path
+import json
 
 class SlashCommandItem(Static):
     """Individual command item in the list"""
@@ -180,34 +184,108 @@ class SlashCommandPopup(Container):
             '*.map', '*.css.map', '*.js.map'
         }
 
-        self._cached_files = self._get_files()
+        self._cached_files = self.find_project_files()
 
-    def _get_files(self, max_files: int = 100) -> List[str]:
-        """Get filtered list of files or directories from current directory"""
-        items = []
-        cwd = os.getcwd()
+    def find_project_files(self, max_files=100):
+        """A fast hybrid approach to find important files in a project"""
+        files = []
 
-        for root, dirs, filenames in os.walk(cwd, topdown=True):
-            # Skip ignored directories
-            dirs[:] = [d for d in dirs if d not in self.ignore_dirs]
+        # Use a faster external tool like fd or ripgrep for the heavy lifting if available
+        if shutil.which("fd"):
+            try:
+                # Fast external search for code files, limiting results
+                cmd = [
+                    "fd",
+                    "--type", "f",                     # Only files
+                    "--hidden",                        # Include hidden files
+                    "--exclude", ".git",               # Common excludes
+                    "--exclude", "node_modules",
+                    "--exclude", "__pycache__",
+                    "--exclude", "*.min.*",
+                    "-e", "py", "-e", "js", "-e", "ts", "-e", "jsx", "-e", "tsx", "-e", "go", "-e", "rs",
+                    "-e", "java", "-e", "c", "-e", "cpp", "-e", "h", "-e", "md", "-e", "json",
+                    "--max-results", str(max_files)
+                ]
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                if result.returncode == 0:
+                    files = [f for f in result.stdout.splitlines() if f.strip()]
+                    if files:
+                        return sorted(files)
+            except Exception:
+                pass  # Fall back to Python implementation
 
-            if self.directorySearch:
-                # Only add directories
-                for dir_name in dirs:
-                    rel_path = os.path.relpath(os.path.join(root, dir_name), cwd)
-                    items.append(rel_path + os.sep)  # Add separator to indicate directory
-            else:
-                # Only add files
-                for filename in filenames:
-                    if any(fnmatch.fnmatch(filename, pattern) for pattern in self.ignore_files):
-                        continue
-                    rel_path = os.path.relpath(os.path.join(root, filename), cwd)
-                    items.append(rel_path)
+        # Important project files to prioritize
+        project_files = [
+            "package.json", "pyproject.toml", "setup.py", "requirements.txt",
+            "Cargo.toml", "go.mod", "Gemfile", "pom.xml", "build.gradle",
+            "README.md", "README", "Dockerfile", "docker-compose.yml", ".gitignore"
+        ]
 
-            if len(items) >= max_files:
-                return sorted(items)
+        # Find project root (look for .git, etc.)
+        root_dir = self.find_project_root(os.getcwd())
 
-        return sorted(items)
+        # First add root level project files
+        for filename in project_files:
+            path = os.path.join(root_dir, filename)
+            if os.path.isfile(path):
+                files.append(os.path.relpath(path, os.getcwd()))
+                if len(files) >= max_files:
+                    return sorted(files)
+
+        # Important directories to prioritize
+        important_dirs = ["src", "app", "lib", "core", "api", "components", "utils", "tests"]
+
+        # Prioritize high-value code extensions
+        extensions = [".py", ".js", ".ts", ".jsx", ".tsx", ".vue", ".go", ".rs", ".java", ".c", ".cpp"]
+
+        # Walk through important directories first
+        for important_dir in important_dirs:
+            dir_path = os.path.join(root_dir, important_dir)
+            if os.path.isdir(dir_path):
+                dir_files = self.scan_directory(dir_path, max_files // len(important_dirs), extensions)
+                files.extend(os.path.relpath(f, os.getcwd()) for f in dir_files)
+
+        # If we still need more files, do a fast crawl of the project root
+        if len(files) < max_files:
+            remaining_files = self.scan_directory(
+                root_dir,
+                max_files - len(files),
+                extensions,
+                exclude_dirs=[".git", "node_modules", "__pycache__", "build", "dist"]
+            )
+            files.extend(os.path.relpath(f, os.getcwd()) for f in remaining_files)
+
+        return sorted(files[:max_files])
+
+    def find_project_root(self,start_path):
+        """Find the project root by looking for common markers"""
+        current = os.path.abspath(start_path)
+        while True:
+            if any(os.path.exists(os.path.join(current, marker)) for marker in
+                   [".git", "package.json", "pyproject.toml", "Cargo.toml"]):
+                return current
+
+            parent = os.path.dirname(current)
+            if parent == current:  # Reached root directory
+                return start_path
+            current = parent
+
+    def scan_directory(self,dir_path, max_files, extensions, exclude_dirs=None):
+        """Efficiently scan a directory for files with specified extensions"""
+        if exclude_dirs is None:
+            exclude_dirs = [".git", "node_modules", "__pycache__"]
+
+        files = []
+        for root, dirs, filenames in os.walk(dir_path):
+            # Skip excluded directories
+            dirs[:] = [d for d in dirs if d not in exclude_dirs]
+
+            for filename in filenames:
+                if any(filename.endswith(ext) for ext in extensions):
+                    files.append(os.path.join(root, filename))
+                    if len(files) >= max_files:
+                        return files
+        return files
 
     def compose(self) -> ComposeResult:
         yield self.search_input
@@ -297,11 +375,8 @@ class SlashCommandPopup(Container):
 
         self.text_area.insert(selected_text)
 
-        line_number = self.text_area.cursor_location[0]
         end = self.text_area.cursor_location[1]
-        start = end - len(selected_text)
-
         self.text_area.refresh(layout=True)
         self.remove()
-        self.text_area.styles.height = len(self.text_area.text.splitlines()) + 2
+        self.text_area.styles.height = "auto"
         self.text_area.focus()

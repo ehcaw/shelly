@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, ClassVar, Iterable, Mapping, cast, List, Any
+from typing import Callable, ClassVar, Iterable, Mapping, cast, List
 import os
 from functools import lru_cache
 import fnmatch
@@ -16,7 +16,6 @@ from textual.geometry import Region, Size
 from textual.message import Message
 from textual.widget import Widget
 from textual.widgets import Input, Static
-from textual import on
 from textual.containers import Container
 
 from ..chat.chat_input_area import ChatInputArea
