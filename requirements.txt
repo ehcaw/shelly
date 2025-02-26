@@ -19,3 +19,4 @@ textual-dev
 pyte
 pyperclip
 shortuuid
+numba
