@@ -146,34 +146,7 @@ class Architect(Widget):
 
     def __init__(self, chat):
         super().__init__()
-        self.mock_files = [
-            {
-                "name": "src",
-                "type": "folder",
-                "children": [
-                    {
-                        "name": "components",
-                        "type": "folder",
-                        "children": [
-                            {"name": "Header.tsx", "type": "file", "language": "typescript", "content": "import React from 'react'\n\nexport const Header = () => {\n  return (\n    <header className=\"bg-gray-800 text-white p-4\">\n      <h1>My App</h1>\n    </header>\n  )\n}"},
-                            {"name": "Footer.tsx", "type": "file", "language": "typescript", "content": "import React from 'react'\n\nexport const Footer = () => {\n  return (\n    <footer className=\"bg-gray-800 text-white p-4\">\n      <p>© 2023 My App</p>\n    </footer>\n  )\n}"},
-                        ],
-                    },
-                    {"name": "App.tsx", "type": "file", "language": "typescript", "content": "import React from 'react'\n\nexport default function App() {\n  return (\n    <div className=\"min-h-screen bg-zinc-900\">\n      <h1>Hello World</h1>\n    </div>\n  )\n}"},
-                    {"name": "index.css", "type": "file", "language": "css", "content": "body {\n  margin: 0;\n  padding: 0;\n  font-family: sans-serif;\n}\n\n.container {\n  max-width: 1200px;\n  margin: 0 auto;\n  padding: 0 1rem;\n}"},
-                ],
-            },
-            {
-                "name": "public",
-                "type": "folder",
-                "children": [
-                    {"name": "index.html", "type": "file", "language": "html", "content": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>My App</title>\n</head>\n<body>\n  <div id=\"root\"></div>\n</body>\n</html>"},
-                    {"name": "favicon.ico", "type": "file", "content": "Binary file content..."},
-                ],
-            },
-            {"name": "package.json", "type": "file", "language": "json", "content": "{\n  \"name\": \"my-app\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"dependencies\": {\n    \"react\": \"^18.2.0\",\n    \"react-dom\": \"^18.2.0\"\n  }\n}"},
-            {"name": "tsconfig.json", "type": "file", "language": "json", "content": "{\n  \"compilerOptions\": {\n    \"target\": \"es5\",\n    \"lib\": [\"dom\", \"dom.iterable\", \"esnext\"],\n    \"allowJs\": true,\n    \"skipLibCheck\": true,\n    \"esModuleInterop\": true,\n    \"strict\": true,\n    \"forceConsistentCasingInFileNames\": true,\n    \"noFallthroughCasesInSwitch\": true,\n    \"module\": \"esnext\",\n    \"moduleResolution\": \"node\",\n    \"resolveJsonModule\": true,\n    \"isolatedModules\": true,\n    \"noEmit\": true,\n    \"jsx\": \"react-jsx\"\n  },\n  \"include\": [\"src\"]\n}"},
-        ]
+
         self.file_structure = self.scan_directory(os.getcwd())
         self.chat = chat
 
@@ -354,7 +327,6 @@ class Architect(Widget):
 
                         yield Input(placeholder="Ask a question...", id="assistant-input")
 
-                yield Footer()
 
     def start_file_scan(self):
         """Begin scanning files in the background"""
