@@ -209,10 +209,11 @@ class Architect(Widget):
         """Update the tabs display."""
         tabs_container = self.query_one("#tabs-container")
         tabs_container.remove_children()
-        
+
         for tab in self.open_tabs:
             tab_button = TabButton(
                 f"{tab['name']} ✕",
+                self,
                 tab,
                 close_callback=self.action_close_tab
             )
@@ -251,15 +252,7 @@ class Architect(Widget):
             self.query_one("#status-bar-content").update("")
             return
 
-        # Update breadcrumb
-        path_parts = []
-        if self.current_file['name'] == "App.tsx":
-            path_parts = ["src", "App.tsx"]
-        elif self.current_file['name'] in ["Header.tsx", "Footer.tsx"]:
-            path_parts = ["src", "components", self.current_file['name']]
-        else:
-            # Simple fallback
-            path_parts = [self.current_file['name']]
+        path_parts = self.current_file["name"].split("/")
 
         breadcrumb_text = " > ".join(path_parts)
         self.query_one("#breadcrumb-container").update(breadcrumb_text)
@@ -281,23 +274,12 @@ class Architect(Widget):
 
         # Try to determine language based on file extension
         file_path = self.current_file.get('path', '')
-        if file_path:
-            if file_path.endswith('.py'):
-                language = 'python'
-            elif file_path.endswith('.js'):
-                language = 'javascript'
-            elif file_path.endswith('.ts'):
-                language = 'typescript'
-            elif file_path.endswith('.html'):
-                language = 'html'
-            elif file_path.endswith('.css'):
-                language = 'css'
-            # Add more file extensions as needed
+        language = self.detect_language(file_path)
 
         # Update the editor content and language
         code_editor.language = language
         code_editor.text = content
-        
+
         # If the file is not marked as modified, update the last saved content
         if not self.current_file.get('modified', False):
             code_editor._last_saved_content = content
@@ -552,7 +534,6 @@ class Architect(Widget):
         """
         Scan a project directory and return the file structure
         """
-        import fnmatch
 
         # If no path is provided, use the current directory
         if start_path is None:
@@ -694,22 +675,23 @@ class Architect(Widget):
                 return True
         return mime_type.startswith(('image/', 'audio/', 'video/', 'application/')) and not mime_type.endswith(('json', 'xml', 'javascript', 'html'))
 
-    def on_mount(self):
-        """Handle app start."""
-        # Open App.tsx by default
-        app_file = next((
-            file for folder in self.mock_files
-            if folder["name"] == "src"
-            for file in folder["children"]
-            if file["name"] == "App.tsx"
-        ), None)
-
-        if app_file:
-            self.open_file(app_file)
+    def is_text_file(self, file_path):
+        """Check if a file is a valid UTF-8 text file"""
+        try:
+            # Try to read a small chunk of the file as UTF-8
+            with open(file_path, 'r', encoding='utf-8') as f:
+                # Read just enough to determine if it's text (4KB should be sufficient)
+                f.read(4096)
+            return True
+        except UnicodeDecodeError:
+            return False
+        except Exception:
+            # For any other errors (like permission issues), assume it's not a text file
+            return False
 
     def trigger_completion(self) -> None:
         """Request code completions from an AI agent.
-        
+
         TO_DO
         """
         context = self.get_current_context()
@@ -719,7 +701,7 @@ class Architect(Widget):
 
     def show_completion_suggestions(self, suggestions: list[str]) -> None:
         """Display a popup with code completion suggestions.
-        
+
         TO_DO
         """
         # Create and show a popup with suggestions
@@ -728,7 +710,7 @@ class Architect(Widget):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses."""
         button_id = event.button.id
-        
+
         # Handle tab buttons
         if button_id and button_id.startswith("tab-"):
             try:
