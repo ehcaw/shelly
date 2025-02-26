@@ -129,6 +129,14 @@ class Architect(Widget):
         height: 1fr;
         background: #1e1e1e;
     }
+
+    .tab-button.modified {
+        /* Base style for modified tabs */
+    }
+
+    .tab-button.modified .dot {
+        color: rgb(150, 150, 150);  /* Light gray dot */
+    }
     """
 
     is_assistant_open = reactive(True)
@@ -224,19 +232,13 @@ class Architect(Widget):
         """Update the tabs display."""
         tabs_container = self.query_one("#tabs-container")
         tabs_container.remove_children()
-
+        
         for tab in self.open_tabs:
             tab_button = TabButton(
                 f"{tab['name']} ✕",
                 tab,
                 close_callback=self.action_close_tab
             )
-
-            # Mark the current tab as active
-            if self.current_file and tab['name'] == self.current_file['name']:
-                tab_button.add_class("active-tab")
-
-            tab_button.add_class("tab-button")
             tabs_container.mount(tab_button)
 
     def on_code_change(self, content: str) -> None:
@@ -248,13 +250,26 @@ class Architect(Widget):
             # with open(self.current_file['path'], 'w') as f:
             #     f.write(content)
 
+    def on_file_save(self) -> None:
+        """Save the current file to disk."""
+        if self.current_file and self.current_file.get('path'):
+            try:
+                with open(self.current_file['path'], 'w') as f:
+                    f.write(self.current_file['content'])
+                self.current_file['modified'] = False
+                self.update_tabs()
+                self.notify(f"Saved: {self.current_file['name']}")
+            except Exception as e:
+                self.notify(f"Error saving file: {str(e)}", severity="error")
+
     def update_editor(self):
         """Update the editor content."""
-        # Get the CodeEditor widget inside the ScrollableContainer
+        # Get the CodeEditor widget
         code_editor = self.query_one("#code-content", CodeEditor)
 
         if not self.current_file:
             code_editor.text = "Select a file to view its content"
+            code_editor._last_saved_content = "Select a file to view its content"
             self.query_one("#breadcrumb-container").update("")
             self.query_one("#status-bar-content").update("")
             return
@@ -277,28 +292,13 @@ class Architect(Widget):
         status_text = f"main   {language.capitalize()}   UTF-8   Ln 1, Col 1"
         self.query_one("#status-bar-content").update(status_text)
 
-        # Update code view with the appropriate language
+        # Update the editor content
         content = self.current_file.get('content', 'No content')
-        language = None
-        
-        # Try to determine language based on file extension
-        file_path = self.current_file.get('path', '')
-        if file_path:
-            if file_path.endswith('.py'):
-                language = 'python'
-            elif file_path.endswith('.js'):
-                language = 'javascript'
-            elif file_path.endswith('.ts'):
-                language = 'typescript'
-            elif file_path.endswith('.html'):
-                language = 'html'
-            elif file_path.endswith('.css'):
-                language = 'css'
-            # Add more file extensions as needed
-        
-        # Update the editor content and language
-        code_editor.language = language
         code_editor.text = content
+        
+        # If the file is not marked as modified, update the last saved content
+        if not self.current_file.get('modified', False):
+            code_editor._last_saved_content = content
 
     def compose(self) -> ComposeResult:
             """Create child widgets."""
@@ -601,3 +601,37 @@ class Architect(Widget):
 
         if app_file:
             self.open_file(app_file)
+
+    def trigger_completion(self) -> None:
+        """Request code completions from an AI agent.
+        
+        TO_DO
+        """
+        context = self.get_current_context()
+        # This would be asynchronous in a real implementation
+        # You'd send the context to your AI and receive suggestions back
+        self.app.call_later(self.show_completion_suggestions, ["suggestion1", "suggestion2"])
+
+    def show_completion_suggestions(self, suggestions: list[str]) -> None:
+        """Display a popup with code completion suggestions.
+        
+        TO_DO
+        """
+        # Create and show a popup with suggestions
+        # When a suggestion is selected, call insert_completio
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button presses."""
+        button_id = event.button.id
+        
+        # Handle tab buttons
+        if button_id and button_id.startswith("tab-"):
+            try:
+                # Extract the index from the tab ID
+                tab_index = int(button_id.split("-")[1])
+                if 0 <= tab_index < len(self.open_tabs):
+                    self.current_file = self.open_tabs[tab_index]
+                    self.update_editor()
+            except (ValueError, IndexError):
+                # Handle potential conversion errors
+                pass
