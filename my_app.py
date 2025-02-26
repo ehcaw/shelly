@@ -96,18 +96,18 @@ class Shelly(App):
         """Create ui loadout"""
         yield Header(id="header", name="Shelly", show_clock=True)
 
-        with Grid(id="main_grid"):
+        #with Grid(id="main_grid"):
             # Left side - Chat component
-            with Vertical(id="left_panel"):
-                self.chat = Chat(app=self)
-                self.chat.input_area.focus()
-                yield self.chat
-                yield CommandFooter()
+        with Vertical(id="left_panel"):
+            self.chat = Chat(app=self)
+            self.chat.input_area.focus()
+            yield self.chat
+            yield CommandFooter()
 
-            # Right side - Your existing components
-            with Vertical(id="right_panel"):
-                #yield TokenUsagePlot(id="token_usage")
-                yield RichLog(id="debug_log")
+        # Right side - Your existing components
+        #with Vertical(id="right_panel"):
+            #yield TokenUsagePlot(id="token_usage")
+            #yield RichLog(id="debug_log")
 
     def action_maximise(self):
         """Maximise the focused widget"""
@@ -125,9 +125,9 @@ class Shelly(App):
     async def on_mount(self) -> None:
         """Called after the app is mounted"""
         await asyncio.sleep(1)  # Wait for widgets to be ready
-        debug_log = self.query_one("#debug_log", RichLog)
+        #debug_log = self.query_one("#debug_log", RichLog)
         chat = self.query_one(Chat)
-        chat.debug_log = debug_log
+        #chat.debug_log = debug_log
 
 
 @dataclass
