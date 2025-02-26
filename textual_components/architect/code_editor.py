@@ -1,5 +1,4 @@
 from textual.widgets import TextArea
-from textual.app import ComposeResult
 from typing import Callable, Optional
 
 class CodeEditor(TextArea):
@@ -10,7 +9,7 @@ class CodeEditor(TextArea):
         text: str = "",
         *,
         language: str | None = None,
-        theme: str = "monokai", #TODO: add functionalit to let user choose theme? that'd be cool
+        theme: str = "monokai",
         on_change: Optional[Callable[[str], None]] = None,
         name: str | None = None,
         id: str | None = None,
@@ -39,12 +38,11 @@ class CodeEditor(TextArea):
             classes=classes,
         )
         self.on_change_callback = on_change
-        
-    def watch_value(self, value: str) -> None:
+    
+    def on_text_area_changed(self, event: TextArea.Changed) -> None:
         """Handle changes to editor content."""
-        # Call the on_change callback if it exists
         if self.on_change_callback:
-            self.on_change_callback(value)
+            self.on_change_callback(self.text)
     
     def on_mount(self) -> None:
         """Set up the editor when it's mounted."""
