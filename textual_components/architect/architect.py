@@ -223,6 +223,7 @@ class Architect(App):
             tab_button.add_class("tab-button")
             tabs_container.mount(tab_button)
 
+
     def update_editor(self):
         """Update the editor content."""
         # Get the Static widget inside the ScrollableContainer
@@ -300,6 +301,7 @@ class Architect(App):
                 yield Input(placeholder="Ask a question...", id="assistant-input")
 
         yield Footer()
+
 
     def on_mount(self):
         """Handle app start."""
