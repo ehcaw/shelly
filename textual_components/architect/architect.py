@@ -11,14 +11,13 @@ from rich.text import Text
 
 from ..architect.tab_button import TabButton
 from ..architect.file_tree import FileExplorer
+from ..architect.assistant_panel import AssistantPanel
 from .code_editor import CodeEditor
 
-from collections import deque
 from pathlib import Path
 import os
 import fnmatch
 import mimetypes
-from numba import njit
 
 class Architect(Widget):
     """A textual app that mimics a code editor."""
@@ -55,9 +54,28 @@ class Architect(Widget):
         background: #252526;
         border-bottom: solid #3c3c3c;
         padding: 0 1;
+        max-width: 25%;
+
     }
 
+        /* Set specific width for explorer - make it narrower */
+    .architect-container #explorer {
+        width: 20%; /* Reduced from 25% to make it narrower */
+        min-width: 15%;
+        max-width: 25%;
+        background: #252526;
+        border-right: solid #3c3c3c;
+    }
+
+    /* Make FileExplorer match the parent explorer width */
+    .architect-container FileExplorer {
+        width: 100%; /* Take full width of parent */
+        background: #252526;
+    }
+
+    /* Input should also match the width of its container */
     .architect-container #explorer-search {
+        width: 1fr; /* Take available space but allow container to control width */
         margin: 0 1;
     }
 
@@ -176,11 +194,13 @@ class Architect(Widget):
             return
 
         # Find the current tab index
-        current_idx = next((i for i, tab in enumerate(self.open_tabs) if tab['name'] == self.current_file['name']), None)
+        if self.current_file: current_idx = next((i for i, tab in enumerate(self.open_tabs) if tab['name'] == self.current_file['name']), None)
+        else: return
 
         if current_idx is not None:
             # Remove the tab
             removed = self.open_tabs.pop(current_idx)
+            self.assistant_panel.remove_file_from_loaded_files(self.current_file)
 
             # Update the tabs UI
             self.update_tabs()
@@ -208,6 +228,8 @@ class Architect(Widget):
         if not any(tab['name'] == file_data['name'] for tab in self.open_tabs):
             self.open_tabs.append(file_data)
             self.update_tabs()
+            self.assistant_panel.add_file_to_loaded_files(file_data)
+
 
         self.update_editor()
 
@@ -243,7 +265,6 @@ class Architect(Widget):
                 self.open_files[file_path]["modified_content"] = content
                 self.open_files[file_path]["modified"] = True
 
-            self.notify(str([key for key in self.open_files.keys()]))
 
             original = self.open_files[file_path]["content"]
             is_modified = content != original
@@ -335,7 +356,7 @@ class Architect(Widget):
                 # Main layout - Horizontal split
                 with Horizontal():
                     # File Explorer Panel
-                    with Vertical():
+                    with Vertical(id="explorer"):
                         with Container(id="explorer-header"):
                             yield Label("EXPLORER", id="explorer-title")
                         yield Input(placeholder="Search files...", id="explorer-search")
@@ -365,13 +386,8 @@ class Architect(Widget):
 
                     # Assistant Panel
                     with Vertical(id="assistant-panel"):
-                        with Container(id="assistant-header"):
-                            yield Label("AI ASSISTANT", id="assistant-title")
-
-                        with ScrollableContainer(id="assistant-messages"):
-                            yield Static("I can help you with coding tasks. Ask me anything!")
-
-                        yield Input(placeholder="Ask a question...", id="assistant-input")
+                        self.assistant_panel = AssistantPanel()
+                        yield self.assistant_panel
 
 
     def start_file_scan(self):

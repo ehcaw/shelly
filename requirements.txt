@@ -20,3 +20,4 @@ pyte
 pyperclip
 shortuuid
 numba
+rich-pixels

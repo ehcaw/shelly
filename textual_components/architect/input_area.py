@@ -55,9 +55,9 @@ class ChatInputArea(TextArea):
     def post_height_change(self, height):
         self.post_message(self.HeightChange(height))
 
-    def __init__(self, chat, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.chat = chat
+
 
     @on(TextArea.Changed)
     async def on_input_changed(self, event: TextArea.Changed):
@@ -114,7 +114,7 @@ class ChatInputArea(TextArea):
         if cursor is None: return
         current_line = self.document.get_line(cursor[0])
         if (current_line.startswith("@file") and cursor[1] - (current_line.index("@file")+5) == 1) or (current_line.startswith(":f") and cursor[1] - (current_line.index(":f")+2) == 1):
-            # Remove any existing popup
+            # Remove any existing popu
             existing = self.query("SlashCommandPopup")
             for widget in existing:
                 widget.remove()
@@ -133,7 +133,7 @@ class ChatInputArea(TextArea):
             # Create new popup
             popup = SlashCommandPopup(self, get_directories=True)
             self.styles.height = "25"
-            self.post_message(self.HeightChange("25"),bubble=True)
+            self.post_message(self.HeightChange("25"))
             await self.mount(popup)
 
     @lru_cache

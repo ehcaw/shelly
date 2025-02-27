@@ -1,6 +1,7 @@
 from textual.widgets import ContentSwitcher, Static
 from textual.containers import Container
 from textual.message import Message
+from rich_pixels import Pixels
 
 class VerticalContentSwitcher(Container):
     """A vertical content switcher with tabs on the left side."""
@@ -48,13 +49,14 @@ class VerticalContentSwitcher(Container):
         self.content = ContentSwitcher()
 
     def compose(self):
-        yield Static("Vertical content switcher")
+        self.tabs.styles.visible = False
         yield self.tabs
         yield self.content
 
+
     def on_mount(self) -> None:
-        self.add_tab("Chat", Static("Chat"), "chat")
-        self.add_tab("Architect", Static("Archic"))
+        self.add_tab("Chat", Static(), "chat")
+        self.add_tab("Architect", Static(), "architect")
 
     class Tab(Static):
         def __init__(self, label: str, content_id: str):
