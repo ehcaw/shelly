@@ -1,6 +1,6 @@
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, Container, ScrollableContainer
-from textual.widgets import Static, Input, Button, Tree, Label, Footer
+from textual.widgets import Static, Input, Button, Tree, Label, Footer, TextArea
 from textual.widget import Widget
 from textual.reactive import reactive
 from textual.widgets.tree import TreeNode
@@ -150,13 +150,14 @@ class Architect(Widget):
         ("ctrl+b", "toggle_explorer", "Toggle Explorer"),
         ("ctrl+j", "toggle_assistant", "Toggle Assistant"),
         ("ctrl+w", "close_tab", "Close Tab"),
+        ("ctrl+shift+s", "save_file", "Save File")
     ]
 
     def __init__(self, chat):
         super().__init__()
-
         self.file_structure = self.scan_directory(os.getcwd())
         self.chat = chat
+        self.open_files = {}
 
     def action_toggle_explorer(self) -> None:
         """Toggle file explorer visibility."""
@@ -175,8 +176,7 @@ class Architect(Widget):
             return
 
         # Find the current tab index
-        current_idx = next((i for i, tab in enumerate(self.open_tabs)
-                            if tab['name'] == self.current_file['name']), None)
+        current_idx = next((i for i, tab in enumerate(self.open_tabs) if tab['name'] == self.current_file['name']), None)
 
         if current_idx is not None:
             # Remove the tab
@@ -197,7 +197,13 @@ class Architect(Widget):
     def open_file(self, file_data):
         """Open a file in the editor."""
         self.current_file = file_data
-
+        if file_data["path"] and file_data["path"] not in self.open_files:
+            self.open_files[file_data["path"]] = {
+                "name": file_data.get("path"), # use path for complete uniqueness, file names can be the same but in different directories
+                "content": file_data.get("content", ""),
+                "modified_content": file_data.get("content", ""),
+                "modified": False
+            }
         # Add to tabs if not already open
         if not any(tab['name'] == file_data['name'] for tab in self.open_tabs):
             self.open_tabs.append(file_data)
@@ -211,6 +217,14 @@ class Architect(Widget):
         tabs_container.remove_children()
 
         for tab in self.open_tabs:
+            is_modified = False
+            if tab.get("path") in self.open_files:
+                is_modified = self.open_files[tab["path"]].get("modified", False)
+
+            # Create the tab label with modification indicator
+            label = f"{tab['name']}"
+            if is_modified:
+                label = f"{tab['name']} •"  # Add a dot to indicate modification
             tab_button = TabButton(
                 f"{tab['name']} ✕",
                 self,
@@ -220,25 +234,53 @@ class Architect(Widget):
             tabs_container.mount(tab_button)
 
     def on_code_change(self, content: str) -> None:
-        """Save changes when code is modified."""
+        """Track changes when code is modified."""
         if self.current_file:
             self.current_file['content'] = content
-            # You might want to add file saving logic here
-            # For example:
-            # with open(self.current_file['path'], 'w') as f:
-            #     f.write(content)
+            file_name = self.current_file["name"]
+            file_path = self.current_file["path"]
+            if file_path and file_path in self.open_files:
+                self.open_files[file_path]["modified_content"] = content
+                self.open_files[file_path]["modified"] = True
 
-    def on_file_save(self) -> None:
+            self.notify(str([key for key in self.open_files.keys()]))
+
+            original = self.open_files[file_path]["content"]
+            is_modified = content != original
+            for tab in self.open_tabs:
+                if tab.get("path") == file_path:
+                    tab["modified"] = is_modified
+            self.update_tabs()
+
+    def action_save_file(self) -> None:
         """Save the current file to disk."""
-        if self.current_file and self.current_file.get('path'):
+        if not self.current_file or not self.current_file.get('path'):
+            self.notify("No file is currently open or file has no path")
+            return
+
+        file_path = self.current_file['path']
+
+        # Check if file is in open_files and is modified
+        if file_path in self.open_files and self.open_files[file_path].get("modified", False):
             try:
-                with open(self.current_file['path'], 'w') as f:
-                    f.write(self.current_file['content'])
-                self.current_file['modified'] = False
+                # Get the current content to save
+                content = self.open_files[file_path]["modified_content"]
+
+                # Write to file
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(content)
+
+                # Update tracking
+                self.open_files[file_path]["modified"] = False
+                self.open_files[file_path]["content"] = content
+
+                # Update UI
                 self.update_tabs()
                 self.notify(f"Saved: {self.current_file['name']}")
             except Exception as e:
                 self.notify(f"Error saving file: {str(e)}", severity="error")
+        else:
+            self.notify("No changes to save")
 
     def update_editor(self):
         """Update the editor content."""
@@ -275,10 +317,12 @@ class Architect(Widget):
         # Try to determine language based on file extension
         file_path = self.current_file.get('path', '')
         language = self.detect_language(file_path)
+        code_editor.set_language(language)
 
         # Update the editor content and language
         code_editor.language = language
         code_editor.text = content
+        code_editor._last_saved_content = content
 
         # If the file is not marked as modified, update the last saved content
         if not self.current_file.get('modified', False):
@@ -311,6 +355,7 @@ class Architect(Widget):
                             yield CodeEditor(
                                 "Select a file to view its content",
                                 id="code-content",
+                                language="python",
                                 on_change=self.on_code_change
                             )
 

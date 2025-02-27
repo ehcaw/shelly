@@ -104,10 +104,11 @@ class Shelly(App):
             yield self.chat
             yield CommandFooter()
 
-        # Right side - Your existing components
-        #with Vertical(id="right_panel"):
-            #yield TokenUsagePlot(id="token_usage")
-            #yield RichLog(id="debug_log")
+            # Right side - Your existing components
+            #with Vertical(id="right_panel"):
+                #yield TokenUsagePlot(id="token_usage")
+                #self.debug_log = RichLog(id="debug_log")
+                #yield self.debug_log
 
     def action_maximise(self):
         """Maximise the focused widget"""
