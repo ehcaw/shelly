@@ -230,7 +230,6 @@ class Architect(Widget):
             self.update_tabs()
             self.assistant_panel.add_file_to_loaded_files(file_data)
 
-
         self.update_editor()
 
     def update_tabs(self):
@@ -248,7 +247,7 @@ class Architect(Widget):
             if is_modified:
                 label = f"{tab['name']} •"  # Add a dot to indicate modification
             tab_button = TabButton(
-                f"{tab['name']} ✕",
+                f"{label} ✕",
                 self,
                 tab,
                 close_callback=self.action_close_tab

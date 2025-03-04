@@ -21,20 +21,6 @@ class InputState:
     cursor_position: int
 
 class ChatInputArea(TextArea):
-    BINDINGS = [
-        Binding(
-            key="ctrl+s",
-            action="focus('cl-option-list')",
-            description="Focus List",
-            key_display="^s",
-        ),
-        Binding(
-            key="ctrl+f",
-            action="search",
-            description="Search",
-            key_display="^f",
-        ),
-    ]
 
     class Submit(Message):
         def __init__(self, textarea: "ChatInputArea") -> None:
@@ -44,6 +30,10 @@ class ChatInputArea(TextArea):
         @property
         def control(self):
             return self.input_area
+
+        @property
+        def content(self):
+            return self.content
 
     class HeightChange(Message):
         bubble=True
@@ -97,7 +87,7 @@ class ChatInputArea(TextArea):
                 return
             if event.key in ("ctrl+enter", "shift+enter"):
                 self.post_message(ChatInputArea.Submit(self))
-                self.styles.height = 25
+                self.styles.height = "auto"
                 return
             if self.query_one("SlashCommandPopup") and event.key == "enter":
                 popup = self.query_one("SlashCommandPopup")

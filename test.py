@@ -1,7 +1,12 @@
-from textual_components.architect.architect import Architect
-from textual.app import App
+class Solution:
+    def twoSum(self, nums, target):
+        seen_numbers = {}
 
-if __name__ == "__main__":
-    my_app = App()
-    my_app.mount(Architect())
-    my_app.run()
+        for i in range(len(nums))
+            current = nums[i]
+            complement = target - current
+
+            if seen_numbers[complement]:
+                return [seen_numbers[complement], i]
+
+            seen_numbers = {current: i}

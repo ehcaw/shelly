@@ -95,9 +95,9 @@ class ChatInputArea(TextArea):
             if isinstance(event.key, str) and event.key.startswith('[<'):
                 event.prevent_default()
                 return
-            if event.key in ("ctrl+enter", "shift+enter"):
+            if event.key in ("ctrl+enter", "ctrl+shift+enter"):
                 self.post_message(ChatInputArea.Submit(self))
-                self.styles.height = 25
+                self.styles.height = "auto"
                 return
             if self.query_one("SlashCommandPopup") and event.key == "enter":
                 popup = self.query_one("SlashCommandPopup")
