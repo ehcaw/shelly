@@ -1,5 +1,5 @@
-from textual.widgets import Input, Container
-from textual.containers import Vertical
+from textual.widgets import Input
+from textual.containers import Container
 from textual import on
 from .document_store import DocumentStore
 

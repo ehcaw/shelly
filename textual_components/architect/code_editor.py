@@ -1,5 +1,8 @@
 from textual.widgets import TextArea
+from textual.binding import Binding
 from typing import Callable, Optional
+
+from textual_components.architect.command_popup import CommandPopup
 from ..architect.assistant_popup import AssistantPopup, CodeQuerySubmitted
 
 from langchain_groq import ChatGroq
@@ -9,8 +12,9 @@ class CodeEditor(TextArea):
     """A code editor extending TextArea with additional functionality."""
 
     BINDINGS = [
-        ("ctrl+shift+a", "ask_about_selection", "Ask about selection"),
-         ("cmd+shift+;", "show_command_popup", "Show command popup"),  # New binding
+        #different terminals have different keybindings for command. ghostly seems to register shift but it doesnt register on mac temrinal, alacrity, or warp.
+        Binding("ctrl+a", "ask_about_selection", "Ask about selection"),
+        Binding("ctrl+p", "show_command_popup", "Show command popup"),  # Simpler binding  # Mac-friendly binding
     ]
 
     def __init__(
@@ -65,7 +69,7 @@ class CodeEditor(TextArea):
             # Update cursor position
             new_pos = (current_pos[0], current_pos[1] + len(completion))
             self.move_cursor(new_pos)
-
+            
     async def action_ask_about_selection(self) -> None:
         """Handle the 'ask about selection' action."""
         # Get selected text correctly from TextArea
@@ -86,6 +90,15 @@ class CodeEditor(TextArea):
             popup.query_one("#query-input").focus()
         else:
             self.app.notify("No code selected. Please select some code first.")
+            
+            
+    async def action_show_command_popup(self) -> None:
+        """Show the command popup."""
+        self.notify("attempting to show command popup baaaaaaakaaaaaa")
+        print("attempting to show command popup")
+        popup = CommandPopup()
+        await self.app.mount(popup)
+        popup.query_one("#command-input").focus()
 
     def on_code_query_submitted(self, event: CodeQuerySubmitted) -> None:
         """Handle the code query submission."""
