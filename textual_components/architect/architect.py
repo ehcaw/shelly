@@ -9,6 +9,9 @@ from textual import events
 from rich.syntax import Syntax
 from rich.text import Text
 
+from langchain_groq import ChatGroq
+from pydantic import SecretStr
+
 from ..architect.tab_button import TabButton
 from ..architect.file_tree import FileExplorer
 from ..architect.assistant_panel import AssistantPanel
@@ -176,6 +179,14 @@ class Architect(Widget):
         self.file_structure = self.scan_directory(os.getcwd())
         self.chat = chat
         self.open_files = {}
+        api_key = os.getenv('GROQ_API_KEY')
+        if not api_key:
+            raise ValueError("GROQ_API_KEY environment variable is not set")
+        self.llm = ChatGroq(
+            model="llama-3.3-70b-versatile",
+            api_key= SecretStr(api_key),
+            temperature=0,
+            stop_sequences=None)
 
     def action_toggle_explorer(self) -> None:
         """Toggle file explorer visibility."""
@@ -375,6 +386,7 @@ class Architect(Widget):
                             yield CodeEditor(
                                 "Select a file to view its content",
                                 id="code-content",
+                                llm=self.llm,
                                 language="python",
                                 on_change=self.on_code_change
                             )
@@ -385,7 +397,7 @@ class Architect(Widget):
 
                     # Assistant Panel
                     with Vertical(id="assistant-panel"):
-                        self.assistant_panel = AssistantPanel()
+                        self.assistant_panel = AssistantPanel(self.llm)
                         yield self.assistant_panel
 
 

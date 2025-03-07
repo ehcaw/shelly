@@ -1,32 +1,31 @@
 from textual.widgets import TextArea
 from typing import Callable, Optional
+from ..architect.assistant_popup import AssistantPopup, CodeQuerySubmitted
+
+from langchain_groq import ChatGroq
 
 
 class CodeEditor(TextArea):
     """A code editor extending TextArea with additional functionality."""
 
+    BINDINGS = [
+        ("ctrl+shift+a", "ask_about_selection", "Ask about selection"),
+        # Keep your existing bindings
+    ]
+
     def __init__(
         self,
         text: str = "",
+        llm: ChatGroq | None= None,
         *,
         language: str | None = "python",
         theme: str = "monokai",
         on_change: Optional[Callable[[str], None]] = None,
+        on_query: Optional[Callable[[str, str], None]] = None,  # Callback for code queries
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
     ) -> None:
-        """Initialize the CodeEditor.
-
-        Args:
-            text: Initial text content
-            language: Programming language for syntax highlighting
-            theme: Color theme for the editor
-            on_change: Callback function when content changes
-            name: Widget name
-            id: Widget ID
-            classes: CSS classes
-        """
         super().__init__(
             id=id,
             text=text,
@@ -39,6 +38,9 @@ class CodeEditor(TextArea):
             classes=classes,
         )
         self.on_change_callback = on_change
+        self.on_query_callback = on_query
+        self.on_change_callback = on_change
+        self.llm = llm
 
 
     def on_text_area_changed(self, event: TextArea.Changed) -> None:
@@ -63,6 +65,35 @@ class CodeEditor(TextArea):
             # Update cursor position
             new_pos = (current_pos[0], current_pos[1] + len(completion))
             self.move_cursor(new_pos)
+
+    async def action_ask_about_selection(self) -> None:
+        """Handle the 'ask about selection' action."""
+        # Get selected text correctly from TextArea
+        selected_text = self.selected_text
+
+        if selected_text:
+            # Create the popup with the selected text
+            popup = AssistantPopup(selected_text, self.llm)
+
+            # Mount the popup to the app's screen
+            await self.app.mount(popup)
+
+            # Debug to see if popup was created correctly
+            self.app.log(f"Popup created with: {selected_text[:20]}...")
+            self.app.log(f"Popup widget tree: {popup.tree}")
+
+            # Focus the query input
+            popup.query_one("#query-input").focus()
+        else:
+            self.app.notify("No code selected. Please select some code first.")
+
+    def on_code_query_submitted(self, event: CodeQuerySubmitted) -> None:
+        """Handle the code query submission."""
+        if self.on_query_callback:
+            self.on_query_callback(event.code, event.query)
+        else:
+            # Default implementation if no callback
+            self.app.notify(f"Query: {event.query} about selected code")
 
     def set_language(self, language: str | None):
         if language:

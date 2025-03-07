@@ -15,23 +15,17 @@ from langchain.schema import BaseMessage, HumanMessage, AIMessage
 from langchain.prompts import ChatPromptTemplate
 
 from ..widget.chatbox import Chatbox, ChatboxContainer
-from ..commands.file_search import SlashCommandPopup
 from ..widget.chat_header import ChatHeader
 from ..widget.typing_indicator import IsTyping
 from ..widget.chat_history import ChatHistory, MessageClass
 from ..widget.vertical_tabs import VerticalContentSwitcher
-from ..commands.file_search import SlashCommandPopup
-from ..commands.autocomplete import AutoComplete, Dropdown, DropdownItem
 from ..chat.chat_input_area import ChatInputArea, ScrollableChatContainer
 from ..architect.architect import Architect
 
 from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass
-from typing import List
-import os
 import asyncio
-from functools import lru_cache
 
 
 

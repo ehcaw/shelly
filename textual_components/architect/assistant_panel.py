@@ -66,17 +66,13 @@ class AssistantPanel(Widget):
         }
         """
     loaded_files = reactive([])
-    def __init__(self):
+    def __init__(self, llm):
         super().__init__()
         api_key = os.getenv('GROQ_API_KEY')
         if not api_key:
             raise ValueError("GROQ_API_KEY environment variable is not set")
         # Initialize the LLM
-        self.llm = ChatGroq(
-                model="llama-3.3-70b-versatile",
-                api_key= SecretStr(api_key),
-                temperature=0,
-                stop_sequences=None)
+        self.llm = llm
 
         self.architect_model = ArchitectModel(code_files=None)
 
