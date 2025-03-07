@@ -10,7 +10,7 @@ class CodeEditor(TextArea):
 
     BINDINGS = [
         ("ctrl+shift+a", "ask_about_selection", "Ask about selection"),
-        # Keep your existing bindings
+         ("cmd+shift+;", "show_command_popup", "Show command popup"),  # New binding
     ]
 
     def __init__(

@@ -21,3 +21,5 @@ pyperclip
 shortuuid
 numba
 rich-pixels
+chromadb
+beautifulsoup4
